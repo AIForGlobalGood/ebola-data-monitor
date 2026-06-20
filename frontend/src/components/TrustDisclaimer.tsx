@@ -1,31 +1,41 @@
-import { AlertTriangle, Info } from "lucide-react";
-import { Panel } from "./ui/Panel";
+import { Info } from "lucide-react";
+import { useState } from "react";
+
+const SUMMARY =
+  "OSINT situational awareness — not epidemiological confirmation. Verify case counts via official situation reports.";
+
+const COMPACT_SUMMARY =
+  "EVD OSINT only — verify against WHO / ReliefWeb before operational use.";
 
 export function TrustDisclaimer({ text, compact = false }: { text?: string; compact?: boolean }) {
-  const message =
-    text ??
-    "Automated classification only — not verified by epidemiologists. Primary sources are separated from unverified media.";
-
-  if (compact) {
-    return (
-      <p className="flex items-start gap-2.5 rounded-xl border border-hub-caution/25 bg-hub-caution-soft/50 px-3.5 py-2.5 text-xs leading-relaxed text-hub-caution/90">
-        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        {message}
-      </p>
-    );
-  }
+  const [expanded, setExpanded] = useState(false);
+  const summary = compact ? COMPACT_SUMMARY : SUMMARY;
+  const detail = text?.trim();
+  const hasDetail = Boolean(detail && detail.length > summary.length + 20);
 
   return (
-    <Panel className="border-hub-caution/25 bg-hub-caution-soft/30">
-      <div className="flex items-start gap-4">
-        <div className="rounded-lg bg-hub-caution-soft p-2.5 text-hub-caution">
-          <AlertTriangle className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="font-medium text-hub-caution">Unverified — automated classification</p>
-          <p className="mt-1.5 text-sm leading-relaxed text-hub-muted">{message}</p>
-        </div>
-      </div>
-    </Panel>
+    <div className="rounded-lg border border-hub-border/50 bg-hub-surface/25 px-3 py-2 text-xs leading-relaxed text-hub-subtle">
+      <p className="flex items-start gap-2">
+        <Info className="mt-0.5 h-3 w-3 shrink-0 text-hub-caution/60" aria-hidden />
+        <span className="text-hub-muted">
+          {summary}
+          {hasDetail && (
+            <>
+              {" "}
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="text-hub-info/80 hover:text-hub-info hover:underline"
+              >
+                {expanded ? "Hide" : "Details"}
+              </button>
+            </>
+          )}
+        </span>
+      </p>
+      {expanded && hasDetail && detail && (
+        <p className="mt-2 border-t border-hub-border/40 pt-2 pl-5 text-hub-subtle">{detail}</p>
+      )}
+    </div>
   );
 }

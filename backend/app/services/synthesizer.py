@@ -40,16 +40,20 @@ def _format_articles(articles: list[Article]) -> str:
 
 def _build_prompt(query: str | None, focus: str, articles: list[Article]) -> str:
     context = _format_articles(articles)
-    user_query = query or "Provide a situational awareness briefing on current Ebola-related developments."
+    user_query = query or (
+        "Provide a situational awareness briefing on the current Ebola virus disease (EVD) outbreak, "
+        "including transmission geography (DRC/Uganda health zones), response operations, and vaccination status."
+    )
 
-    return f"""You are an analyst supporting a global health foundation's emergency response team.
-Your task is PUBLIC INFORMATION synthesis for situational awareness and decision support.
-This is NOT a biosafety or laboratory use case — you are summarizing openly published news and alerts.
+    return f"""You are an analyst supporting a global health foundation's EVD emergency response team.
+Your task is PUBLIC INFORMATION synthesis for Ebola virus disease situational awareness.
+This is NOT a biosafety or laboratory use case — you are summarizing openly published outbreak news and WHO/ReliefWeb reports.
 
 Focus area: {focus}
 Analyst request: {user_query}
 
-Use ONLY the articles below. Be factual, flag uncertainty, and separate confirmed facts from speculation.
+Use ONLY the articles below. Be factual, flag uncertainty, and separate confirmed EVD facts from speculation.
+Distinguish: confirmed/probable/suspected cases, health zones affected, strain (e.g. Bundibugyo, Zaire), cross-border transmission, ring vaccination, contact tracing.
 Structure your response as JSON with keys:
 - summary (2-4 paragraph executive overview)
 - findings (array of objects, each with: text, article_ids [integers from Article ID labels], confidence one of confirmed|likely|unverified — use confirmed ONLY when citing WHO/CDC/ReliefWeb primary sources)
@@ -90,21 +94,21 @@ def _mock_synthesis(query: str | None, articles: list[Article]) -> SynthesisResu
 
     summary = (
         (
-            f"Situational digest synthesizing {len(articles)} public articles"
+            f"EVD situational digest synthesizing {len(articles)} public articles"
             + (f' for "{query}"' if query else "")
             + f". Priority signal: {top[0].title}."
-            + " Findings are tagged by source tier — only primary/agency sources marked confirmed."
+            + " Findings are tagged by source tier — only WHO/CDC/ReliefWeb marked confirmed."
         )
         if top
-        else "No articles available."
+        else "No EVD-relevant articles available."
     )
     if regions:
         summary += f" Geographic focus: {', '.join(regions[:4])}."
 
     recommendations = [
-        "Review critical and high-severity alerts on the Control Tower dashboard",
-        "Cross-check outbreak signals against WHO and ReliefWeb primary sources",
-        "Configure LLM_PROVIDER for richer narrative synthesis when API access is available",
+        "Review EVD alerts on the Control Tower — prioritize Ituri/North Kivu and cross-border Uganda signals",
+        "Cross-check case counts against latest WHO AFRO / ReliefWeb situation reports",
+        "Coordinate ring vaccination and contact tracing updates with in-country partners",
     ]
 
     return SynthesisResult(

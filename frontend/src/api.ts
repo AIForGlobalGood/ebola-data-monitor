@@ -98,6 +98,24 @@ export interface MapPoint {
   severity: string;
 }
 
+export interface TowerHeadline {
+  verified_alerts: number;
+  affected_regions: number;
+  critical_high: number;
+  matched_signals: number;
+  last_official_update: string | null;
+  last_ingest_at: string | null;
+  as_of: string;
+}
+
+export interface RegionDetail {
+  location: string;
+  map_point: MapPoint | null;
+  articles: Article[];
+  timeline: TimelineBucket[];
+  date_filter?: DateFilterMeta;
+}
+
 export interface DateFilterMeta {
   date_from: string | null;
   date_to: string | null;
@@ -108,6 +126,7 @@ export interface DateFilterMeta {
 
 export interface ControlTowerData {
   stats: DashboardStats;
+  headline: TowerHeadline;
   verified_alerts: TowerAlert[];
   media_signals: TowerAlert[];
   alerts: TowerAlert[];
@@ -142,6 +161,11 @@ export const api = {
     appendDateParams(params, filters);
     const qs = params.toString();
     return request<ControlTowerData>(`/api/tower${qs ? `?${qs}` : ""}`);
+  },
+  regionDetail: (location: string, filters?: DateFilterParams) => {
+    const params = new URLSearchParams({ location });
+    appendDateParams(params, filters);
+    return request<RegionDetail>(`/api/tower/region?${params}`);
   },
   dashboard: () => request<DashboardStats>("/api/dashboard"),
   sources: () => request<Source[]>("/api/sources"),

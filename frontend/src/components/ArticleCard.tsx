@@ -1,5 +1,5 @@
 import { Article } from "../api";
-import { formatDate, severityStyles, tierStyles } from "../utils";
+import { formatDate, categoryLabel, severityStyles, tierStyles } from "../utils";
 
 export function ArticleCard({ article, compact = false }: { article: Article; compact?: boolean }) {
   const sev = severityStyles(article.severity);
@@ -26,7 +26,7 @@ export function ArticleCard({ article, compact = false }: { article: Article; co
       )}
       <div className="flex flex-wrap items-center gap-2 font-mono text-2xs text-hub-subtle">
         <span className="rounded-md bg-hub-surface px-2 py-1">{article.source_name ?? "Unknown"}</span>
-        <span className="rounded-md bg-hub-surface px-2 py-1 capitalize">{article.category}</span>
+        <span className="rounded-md bg-hub-surface px-2 py-1 capitalize">{categoryLabel(article.category)}</span>
         {article.locations?.slice(0, 2).map((loc) => (
           <span key={loc} className="rounded-md bg-hub-surface px-2 py-1">
             {loc}

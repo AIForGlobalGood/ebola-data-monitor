@@ -70,4 +70,18 @@ export function tierStyles(tier: string) {
   }
 }
 
-export const CATEGORIES = ["all", "outbreak", "vaccine", "treatment", "alert", "humanitarian", "health", "surveillance"] as const;
+export const CATEGORIES = [
+  "all",
+  "outbreak",
+  "surveillance",
+  "contact_tracing",
+  "response",
+  "vaccine",
+  "treatment",
+  "alert",
+  "humanitarian",
+] as const;
+
+export function categoryLabel(category: string): string {
+  return category.replace(/_/g, " ");
+}

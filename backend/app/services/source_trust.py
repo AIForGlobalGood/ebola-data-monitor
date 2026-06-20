@@ -3,8 +3,24 @@
 from urllib.parse import urlparse
 
 # primary = multilateral health agencies & official humanitarian reporting
-PRIMARY_DOMAINS = ("who.int", "cdc.gov", "reliefweb.int", "emergency.cdc.gov", "tools.cdc.gov")
-OFFICIAL_DOMAINS = ("un.org", "unicef.org", "gavi.org", "ecdc.europa.eu", "hhs.gov")
+PRIMARY_DOMAINS = (
+    "who.int",
+    "afro.who.int",
+    "cdc.gov",
+    "reliefweb.int",
+    "emergency.cdc.gov",
+    "tools.cdc.gov",
+)
+OFFICIAL_DOMAINS = (
+    "un.org",
+    "unicef.org",
+    "gavi.org",
+    "ecdc.europa.eu",
+    "hhs.gov",
+    "africa-cdc.int",
+    "msf.org",
+    "international-rescue.org",
+)
 
 TIER_SCORES = {"primary": 1.0, "official": 0.85, "aggregator": 0.45}
 TIER_LABELS = {

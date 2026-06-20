@@ -1,17 +1,100 @@
 import { LucideIcon } from "lucide-react";
-import { ReactNode } from "react";
+import { CSSProperties, ReactNode } from "react";
+import { useVerticalResize } from "../../hooks/useVerticalResize";
+
+function ResizeHandle({ onPointerDown }: { onPointerDown: (e: React.PointerEvent<HTMLElement>) => void }) {
+  return (
+    <div
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label="Drag to resize section"
+      tabIndex={0}
+      onPointerDown={onPointerDown}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") e.preventDefault();
+      }}
+      className="panel-resize-handle"
+    >
+      <div className="panel-resize-grip" aria-hidden="true">
+        <span />
+        <span />
+      </div>
+    </div>
+  );
+}
+
+export function ScrollSection({
+  header,
+  children,
+  className = "",
+  defaultHeight = 480,
+  minHeight = 160,
+  contentClassName = "",
+}: {
+  header: ReactNode;
+  children: ReactNode;
+  className?: string;
+  defaultHeight?: number;
+  minHeight?: number;
+  contentClassName?: string;
+}) {
+  const { height, onPointerDown } = useVerticalResize(defaultHeight, { minHeight });
+
+  return (
+    <div className={`flex flex-col gap-3 ${className}`}>
+      <div className="shrink-0">{header}</div>
+      <Panel noPadding className="flex flex-col overflow-hidden" style={{ height }}>
+        <div
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] ${contentClassName || "p-5"}`}
+        >
+          {children}
+        </div>
+        <ResizeHandle onPointerDown={onPointerDown} />
+      </Panel>
+    </div>
+  );
+}
+
+/** Panel with header + resizable scroll body (map sidebar drill-down). */
+export function ScrollPanel({
+  header,
+  children,
+  defaultHeight,
+  minHeight = 280,
+  className = "",
+}: {
+  header: ReactNode;
+  children: ReactNode;
+  defaultHeight: number;
+  minHeight?: number;
+  className?: string;
+}) {
+  const { height, onPointerDown } = useVerticalResize(defaultHeight, { minHeight });
+
+  return (
+    <Panel noPadding className={`flex flex-col overflow-hidden ${className}`} style={{ height }}>
+      <div className="shrink-0">{header}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+        {children}
+      </div>
+      <ResizeHandle onPointerDown={onPointerDown} />
+    </Panel>
+  );
+}
 
 export function Panel({
   children,
   className = "",
   noPadding = false,
+  style,
 }: {
   children: ReactNode;
   className?: string;
   noPadding?: boolean;
+  style?: CSSProperties;
 }) {
   return (
-    <div className={`panel overflow-hidden ${className}`}>
+    <div className={`panel overflow-hidden ${className}`} style={style}>
       {noPadding ? children : <div className="panel-body">{children}</div>}
     </div>
   );

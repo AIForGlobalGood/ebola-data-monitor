@@ -1,13 +1,13 @@
 # Ebola Crisis Hub
 
-**Ebola Emergency Crisis Control Tower** — a client-server web app for monitoring, retrieving, organizing, and synthesizing public information to support situational awareness and decision-making during health emergencies.
+**Ebola virus disease (EVD) Control Tower** — monitors the DRC/Uganda outbreak corridor and related filovirus signals. Aggregates public RSS from WHO, ReliefWeb, and CDC; filters out generic health noise; separates verified agency reports from media aggregators.
 
-Built for foundation program teams who need a centralized hub that aggregates open-source intelligence without running afoul of overly restrictive AI safety filters on crisis-related keywords.
+Built for foundation program teams who need EVD situational awareness — ring vaccination, contact tracing, health-zone geography — without treating every headline as a confirmed case count.
 
 ## Architecture
 
 ```
-┌─────────────────┐      REST / JSON       ┌──────────────────────────────┐
+┌─────────────────┐      REST / JSON     ┌──────────────────────────────┐
 │  React + Vite   │ ◄──────────────────► │  FastAPI backend             │
 │  Control Tower  │                      │  • RSS ingestion             │
 │  UI             │                      │  • Search & relevance scoring│
@@ -19,7 +19,7 @@ Built for foundation program teams who need a centralized hub that aggregates op
 |-------|-------|
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS |
 | Backend | FastAPI, SQLAlchemy (async), SQLite |
-| Ingestion | WHO, CDC, ReliefWeb, GAVI RSS feeds |
+| Ingestion | ReliefWeb DRC/Ebola, WHO, CDC HAN, EVD-focused Google News |
 | Synthesis | Mock (default), OpenAI, or Anthropic |
 
 ## Quick start

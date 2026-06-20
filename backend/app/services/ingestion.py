@@ -1,4 +1,3 @@
-import re
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
@@ -11,71 +10,75 @@ from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
 from app.models import Article, Source
-from app.services.entities import (
+from app.services.ebola_domain import (
+    MIN_EVD_RELEVANCE,
     compute_severity,
     extract_locations,
+    infer_evd_category,
+    is_evd_relevant,
     locations_to_json,
+    score_evd_relevance,
 )
 from app.services.date_filters import apply_date_filters, parse_date_param
 from app.services.source_trust import infer_source_tier, trust_score_for_tier
 from app.services.text_utils import clean_html, normalize_title, normalize_url, title_fingerprint, titles_are_duplicate
 
-EBOLA_KEYWORDS = re.compile(
-    r"\b(ebola|hemorrhagic|outbreak|epidemic|vaccine|vaccination|"
-    r"immunization|biotech|virus|viral|surveillance|contact.?tracing|"
-    r"therapeutic|treatment|clinical.?trial|who|cdc|health.?emergency|filovirus|marburg)\b",
-    re.IGNORECASE,
-)
-
 DEFAULT_SOURCES = [
+    {
+        "name": "ReliefWeb — DRC Updates",
+        "url": "https://reliefweb.int/updates/rss.xml?legacy-river=country/cod",
+        "category": "outbreak",
+        "region": "drc",
+        "description": "DRC humanitarian updates including EVD situation reports",
+    },
+    {
+        "name": "ReliefWeb — Ebola",
+        "url": "https://reliefweb.int/updates/rss.xml?search=Ebola",
+        "category": "outbreak",
+        "region": "africa",
+        "description": "ReliefWeb Ebola outbreak and response updates",
+    },
     {
         "name": "WHO News",
         "url": "https://www.who.int/rss-feeds/news-english.xml",
         "category": "health",
         "region": "global",
-        "description": "WHO global health news",
+        "description": "WHO global health news (EVD-filtered at ingest)",
     },
     {
-        "name": "ReliefWeb Updates",
-        "url": "https://reliefweb.int/updates/rss.xml",
-        "category": "humanitarian",
-        "region": "global",
-        "description": "ReliefWeb humanitarian situation reports",
-    },
-    {
-        "name": "Google News — Ebola Outbreak",
-        "url": "https://news.google.com/rss/search?q=ebola+outbreak+confirmed+cases&hl=en-US&gl=US&ceid=US:en",
-        "category": "outbreak",
-        "region": "global",
-        "description": "Aggregated public news on Ebola outbreaks",
-    },
-    {
-        "name": "Google News — Ebola Vaccine",
-        "url": "https://news.google.com/rss/search?q=ebola+vaccine+immunization&hl=en-US&gl=US&ceid=US:en",
-        "category": "vaccine",
-        "region": "global",
-        "description": "Public news on Ebola vaccines and immunization",
-    },
-    {
-        "name": "Google News — Hemorrhagic Fever",
-        "url": "https://news.google.com/rss/search?q=viral+hemorrhagic+fever+surveillance&hl=en-US&gl=US&ceid=US:en",
-        "category": "surveillance",
-        "region": "global",
-        "description": "Public news on viral hemorrhagic fever surveillance",
-    },
-    {
-        "name": "Google News — DRC Health",
-        "url": "https://news.google.com/rss/search?q=DRC+Congo+ebola+health&hl=en-US&gl=US&ceid=US:en",
+        "name": "Google News — EVD Outbreak DRC Uganda",
+        "url": "https://news.google.com/rss/search?q=ebola+outbreak+DRC+Uganda+Ituri+confirmed+cases&hl=en-US&gl=US&ceid=US:en",
         "category": "outbreak",
         "region": "africa",
-        "description": "DRC and Central Africa Ebola-related coverage",
+        "description": "Public news on active DRC/Uganda EVD outbreaks",
+    },
+    {
+        "name": "Google News — Ebola Vaccine Ring Vaccination",
+        "url": "https://news.google.com/rss/search?q=ebola+vaccine+Ervebo+ring+vaccination&hl=en-US&gl=US&ceid=US:en",
+        "category": "vaccine",
+        "region": "africa",
+        "description": "EVD ring vaccination and Ervebo coverage",
+    },
+    {
+        "name": "Google News — Uganda Bundibugyo EVD",
+        "url": "https://news.google.com/rss/search?q=Uganda+Bundibugyo+ebola+cross+border&hl=en-US&gl=US&ceid=US:en",
+        "category": "outbreak",
+        "region": "uganda",
+        "description": "Bundibugyo strain and cross-border EVD signals",
+    },
+    {
+        "name": "Google News — EVD Contact Tracing Response",
+        "url": "https://news.google.com/rss/search?q=ebola+contact+tracing+safe+burial+response&hl=en-US&gl=US&ceid=US:en",
+        "category": "response",
+        "region": "africa",
+        "description": "EVD response operations — tracing, burial, IPC",
     },
     {
         "name": "CDC Health Alert Network",
         "url": "https://tools.cdc.gov/api/v2/resources/media/404372.rss",
         "category": "alert",
         "region": "global",
-        "description": "CDC HAN public health alerts",
+        "description": "CDC HAN public health alerts (EVD-filtered at ingest)",
     },
 ]
 
@@ -94,26 +97,11 @@ def _parse_date(value: str | None) -> datetime | None:
 
 
 def _score_relevance(title: str, summary: str | None) -> float:
-    text = f"{title} {summary or ''}"
-    matches = len(EBOLA_KEYWORDS.findall(text))
-    if matches == 0:
-        return 0.1
-    return min(1.0, 0.3 + matches * 0.15)
+    return score_evd_relevance(title, summary)
 
 
 def _infer_category(title: str, summary: str | None, default: str) -> str:
-    text = f"{title} {summary or ''}".lower()
-    if any(k in text for k in ("vaccine", "vaccination", "immunization", "gavi")):
-        return "vaccine"
-    if any(k in text for k in ("outbreak", "case", "epidemic", "surveillance", "cluster")):
-        return "outbreak"
-    if any(k in text for k in ("trial", "treatment", "therapeutic", "drug", "guideline")):
-        return "treatment"
-    if any(k in text for k in ("humanitarian", "relief", "response")):
-        return "humanitarian"
-    if any(k in text for k in ("alert", "emergency", "han")):
-        return "alert"
-    return default
+    return infer_evd_category(title, summary, default)
 
 
 def _enrich_article_fields(title: str, summary: str | None, category: str, source: Source) -> dict:
@@ -216,6 +204,10 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
         raw_summary = entry.get("summary") or entry.get("description")
         summary = clean_html(raw_summary)
         category = _infer_category(title, summary, source.category)
+
+        if not is_evd_relevant(title, summary, source_name=source.name, source_url=source.url):
+            continue
+
         enriched = _enrich_article_fields(title, summary, category, source)
 
         article = Article(
@@ -267,6 +259,7 @@ async def search_articles(
     date_to: datetime | None = None,
     date_field: str = "published",
     limit: int = 25,
+    evd_only: bool = True,
 ) -> list[Article]:
     terms = [term.strip() for term in query.split() if term.strip()]
     stmt = select(Article).options(selectinload(Article.source)).order_by(
@@ -274,6 +267,9 @@ async def search_articles(
         Article.published_at.desc().nullslast(),
         Article.fetched_at.desc(),
     )
+
+    if evd_only:
+        stmt = stmt.where(Article.relevance_score >= MIN_EVD_RELEVANCE)
 
     if category:
         stmt = stmt.where(Article.category == category)
@@ -312,12 +308,15 @@ async def get_recent_articles(
     date_from: datetime | None = None,
     date_to: datetime | None = None,
     date_field: str = "published",
+    evd_only: bool = True,
 ) -> list[Article]:
     stmt = (
         select(Article)
         .options(selectinload(Article.source))
         .order_by(Article.relevance_score.desc(), Article.published_at.desc().nullslast())
     )
+    if evd_only:
+        stmt = stmt.where(Article.relevance_score >= MIN_EVD_RELEVANCE)
     if category:
         stmt = stmt.where(Article.category == category)
     if severity:

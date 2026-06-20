@@ -143,8 +143,27 @@ class MapPoint(BaseModel):
     severity: str
 
 
+class TowerHeadline(BaseModel):
+    verified_alerts: int = 0
+    affected_regions: int = 0
+    critical_high: int = 0
+    matched_signals: int = 0
+    last_official_update: datetime | None = None
+    last_ingest_at: datetime | None = None
+    as_of: datetime
+
+
+class RegionDetail(BaseModel):
+    location: str
+    map_point: MapPoint | None = None
+    articles: list[ArticleRead] = Field(default_factory=list)
+    timeline: list[TimelineBucket] = Field(default_factory=list)
+    date_filter: DateFilterMeta = Field(default_factory=DateFilterMeta)
+
+
 class ControlTowerData(BaseModel):
     stats: DashboardStats
+    headline: TowerHeadline
     verified_alerts: list[TowerAlert]
     media_signals: list[TowerAlert]
     alerts: list[TowerAlert]

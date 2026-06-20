@@ -54,7 +54,7 @@ async def generate_briefing(payload: BriefingRequest, db: AsyncSession = Depends
     else:
         articles = await search_articles(
             db,
-            "ebola outbreak vaccine",
+            "ebola outbreak Ituri DRC Uganda Bundibugyo confirmed cases",
             limit=15,
             date_from=parsed_from,
             date_to=parsed_to,

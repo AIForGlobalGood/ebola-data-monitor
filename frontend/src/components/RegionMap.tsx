@@ -6,8 +6,8 @@ import { severityStyles } from "../utils";
 import { PanelHeader } from "./ui/Panel";
 import "./map.css";
 
-const AFRICA_CENTER: L.LatLngExpression = [0.5, 22];
-const DEFAULT_ZOOM = 3;
+const AFRICA_EVD_CENTER: L.LatLngExpression = [-0.5, 28.5];
+const DEFAULT_ZOOM = 5;
 
 function severityColor(severity: string): string {
   switch (severity) {
@@ -32,7 +32,7 @@ function FitBounds({ points }: { points: MapPoint[] }) {
 
   useEffect(() => {
     if (points.length === 0) {
-      map.setView(AFRICA_CENTER, DEFAULT_ZOOM);
+      map.setView(AFRICA_EVD_CENTER, DEFAULT_ZOOM);
       return;
     }
     if (points.length === 1) {
@@ -46,18 +46,26 @@ function FitBounds({ points }: { points: MapPoint[] }) {
   return null;
 }
 
-export function RegionMap({ points }: { points: MapPoint[] }) {
+export function RegionMap({
+  points,
+  selectedLocation,
+  onSelectLocation,
+}: {
+  points: MapPoint[];
+  selectedLocation?: string | null;
+  onSelectLocation?: (location: string) => void;
+}) {
   const sorted = [...points].sort((a, b) => b.primary_count - a.primary_count);
 
   return (
     <div className="panel overflow-hidden">
       <PanelHeader
-        eyebrow="Geospatial"
-        title="Signal map"
-        description="Interactive · severity from primary sources only"
+        eyebrow="EVD geospatial"
+        title="Outbreak corridor map"
+        description="DRC · Uganda · Ituri health zones — click to drill down"
       />
       <div className="crisis-map relative h-[460px] w-full">
-        <MapContainer center={AFRICA_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom className="h-full w-full">
+        <MapContainer center={AFRICA_EVD_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom className="h-full w-full">
           <TileLayer
             attribution='&copy; OSM &copy; CARTO'
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -67,16 +75,20 @@ export function RegionMap({ points }: { points: MapPoint[] }) {
             const color = severityColor(point.severity);
             const radius = markerRadius(point);
             const sev = severityStyles(point.severity);
+            const isSelected = selectedLocation === point.location;
             return (
               <CircleMarker
                 key={point.location}
                 center={[point.lat, point.lng]}
-                radius={radius}
+                radius={isSelected ? radius + 4 : radius}
+                eventHandlers={{
+                  click: () => onSelectLocation?.(point.location),
+                }}
                 pathOptions={{
-                  color,
+                  color: isSelected ? "#4db5ff" : color,
                   fillColor: color,
                   fillOpacity: point.primary_count > 0 ? 0.8 : 0.35,
-                  weight: point.primary_count > 0 ? 2 : 1,
+                  weight: isSelected ? 3 : point.primary_count > 0 ? 2 : 1,
                   opacity: 0.95,
                 }}
               >
@@ -100,6 +112,15 @@ export function RegionMap({ points }: { points: MapPoint[] }) {
                         <dd>{point.count}</dd>
                       </div>
                     </dl>
+                    {onSelectLocation && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectLocation(point.location)}
+                        className="mt-1 w-full rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-medium text-white hover:bg-slate-800"
+                      >
+                        View region detail
+                      </button>
+                    )}
                   </div>
                 </Popup>
               </CircleMarker>

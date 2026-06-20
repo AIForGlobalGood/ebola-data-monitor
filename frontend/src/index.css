@@ -39,6 +39,33 @@
     @apply p-5;
   }
 
+  .panel-resize-handle {
+    @apply flex shrink-0 touch-none select-none items-center justify-center border-t border-hub-border/35 py-2 transition-colors;
+    cursor: row-resize;
+  }
+
+  .panel-resize-handle:hover,
+  .panel-resize-handle:active {
+    @apply border-hub-muted/25 bg-hub-surface/40;
+  }
+
+  .panel-resize-handle:focus-visible {
+    @apply outline-none ring-2 ring-inset ring-hub-info/30;
+  }
+
+  .panel-resize-grip {
+    @apply flex flex-col gap-[3px];
+  }
+
+  .panel-resize-grip span {
+    @apply block h-px w-6 rounded-full bg-hub-muted/35 transition-all;
+  }
+
+  .panel-resize-handle:hover .panel-resize-grip span,
+  .panel-resize-handle:active .panel-resize-grip span {
+    @apply w-9 bg-hub-muted/55;
+  }
+
   .eyebrow {
     @apply font-mono text-xs font-medium uppercase tracking-widest text-hub-subtle;
   }
