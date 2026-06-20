@@ -1,0 +1,146 @@
+@import "./theme.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply min-h-screen bg-hub-bg font-sans text-hub-text;
+    background-image: var(--body-gradient);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: var(--selection-bg);
+    color: var(--selection-color);
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-hub-border bg-hub-elevated/80 shadow-panel backdrop-blur-sm;
+  }
+
+  .panel-header {
+    @apply border-b border-hub-border px-5 py-4;
+  }
+
+  .panel-body {
+    @apply p-5;
+  }
+
+  .panel-resize-handle {
+    @apply flex shrink-0 touch-none select-none items-center justify-center border-t border-hub-border/35 py-2 transition-colors;
+    cursor: row-resize;
+  }
+
+  .panel-resize-handle:hover,
+  .panel-resize-handle:active {
+    @apply border-hub-muted/25 bg-hub-surface/40;
+  }
+
+  .panel-resize-handle:focus-visible {
+    @apply outline-none ring-2 ring-inset ring-hub-info/30;
+  }
+
+  .panel-resize-grip {
+    @apply flex flex-col gap-[3px];
+  }
+
+  .panel-resize-grip span {
+    @apply block h-px w-6 rounded-full bg-hub-muted/35 transition-all;
+  }
+
+  .panel-resize-handle:hover .panel-resize-grip span,
+  .panel-resize-handle:active .panel-resize-grip span {
+    @apply w-9 bg-hub-muted/55;
+  }
+
+  .eyebrow {
+    @apply font-mono text-xs font-medium uppercase tracking-widest text-hub-subtle;
+  }
+
+  .section-title {
+    @apply text-lg font-semibold tracking-tight text-hub-text;
+  }
+
+  .section-desc {
+    @apply mt-1 text-sm leading-relaxed text-hub-muted;
+  }
+
+  .input-field {
+    @apply w-full rounded-xl border border-hub-border bg-hub-surface px-3.5 py-2.5 text-sm text-hub-text outline-none transition placeholder:text-hub-subtle focus:border-hub-info/50 focus:ring-2 focus:ring-hub-info/20;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition disabled:pointer-events-none disabled:opacity-40;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-hub-border bg-hub-surface px-4 py-2.5 text-sm font-medium text-hub-text transition hover:bg-hub-card disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-hub-crisis px-4 py-2.5 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-40;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-hub-verified/30 bg-hub-verified-soft px-4 py-2.5 text-sm font-medium text-hub-verified transition disabled:opacity-40;
+  }
+
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-hub-caution/30 bg-hub-caution-soft px-4 py-2.5 text-sm font-medium text-hub-caution transition disabled:opacity-40;
+  }
+
+  .nav-item {
+    @apply flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-hub-muted transition hover:bg-hub-card hover:text-hub-text;
+  }
+
+  .nav-item-active {
+    @apply flex w-full items-center gap-3 rounded-xl bg-hub-card px-3 py-2.5 text-sm font-medium text-hub-text shadow-panel;
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium capitalize transition;
+  }
+
+  .chip-active {
+    @apply inline-flex items-center rounded-full border border-hub-info/40 bg-hub-info-soft px-2.5 py-1 text-xs font-medium capitalize text-hub-info transition;
+  }
+
+  .chip-idle {
+    @apply inline-flex items-center rounded-full border border-hub-border bg-hub-surface px-2.5 py-1 text-xs font-medium capitalize text-hub-muted transition hover:text-hub-text;
+  }
+
+  .metric-value {
+    @apply font-mono text-3xl font-medium tracking-tight text-hub-text;
+  }
+
+  .live-dot {
+    @apply relative inline-flex h-2 w-2 rounded-full bg-hub-verified;
+    box-shadow: 0 0 8px var(--live-dot-glow);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+}

@@ -1,0 +1,44 @@
+.crisis-map .leaflet-container {
+  background: rgb(var(--hub-surface));
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+}
+
+.crisis-map .leaflet-control-attribution {
+  background: rgb(var(--hub-bg) / 0.92) !important;
+  color: rgb(var(--hub-subtle)) !important;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+}
+
+.crisis-map .leaflet-control-attribution a {
+  color: rgb(var(--hub-muted)) !important;
+}
+
+.crisis-map .leaflet-bar {
+  border: 1px solid rgb(var(--hub-border) / 0.15) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+
+.crisis-map .leaflet-bar a {
+  background: rgb(var(--hub-elevated)) !important;
+  color: rgb(var(--hub-text)) !important;
+  border-bottom-color: rgb(var(--hub-border) / 0.12) !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+}
+
+.crisis-map .leaflet-bar a:hover {
+  background: rgb(var(--hub-card)) !important;
+}
+
+.crisis-popup .leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  box-shadow: var(--map-popup-shadow);
+}
+
+.crisis-popup .leaflet-popup-tip {
+  background: white;
+}

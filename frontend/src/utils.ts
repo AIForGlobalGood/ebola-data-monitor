@@ -1,0 +1,87 @@
+export function formatDate(value: string | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function severityStyles(severity: string) {
+  switch (severity) {
+    case "critical":
+      return {
+        badge: "text-hub-crisis bg-hub-crisis-soft border-hub-crisis/35",
+        dot: "bg-hub-crisis shadow-[0_0_10px_rgba(239,90,90,0.75)]",
+        label: "Critical",
+      };
+    case "high":
+      return {
+        badge: "text-hub-high bg-hub-high-soft border-hub-high/35",
+        dot: "bg-hub-high shadow-[0_0_8px_var(--hub-high-soft)]",
+        label: "High",
+      };
+    case "medium":
+      return {
+        badge: "text-hub-caution bg-hub-caution-soft border-hub-caution/35",
+        dot: "bg-hub-caution",
+        label: "Medium",
+      };
+    default:
+      return {
+        badge: "text-hub-muted bg-hub-surface border-hub-border",
+        dot: "bg-hub-subtle",
+        label: "Low",
+      };
+  }
+}
+
+export function confidenceStyles(confidence: string) {
+  switch (confidence) {
+    case "confirmed":
+      return "text-hub-verified bg-hub-verified-soft border-hub-verified/35";
+    case "likely":
+      return "text-hub-info bg-hub-info-soft border-hub-info/35";
+    case "unverified":
+      return "text-hub-caution bg-hub-caution-soft border-hub-caution/35";
+    default:
+      return "text-hub-muted bg-hub-surface border-hub-border";
+  }
+}
+
+export function tierStyles(tier: string) {
+  switch (tier) {
+    case "primary":
+      return {
+        badge: "text-hub-verified bg-hub-verified-soft border-hub-verified/35",
+        label: "Primary source",
+      };
+    case "official":
+      return {
+        badge: "text-hub-info bg-hub-info-soft border-hub-info/35",
+        label: "Official source",
+      };
+    default:
+      return {
+        badge: "text-hub-caution bg-hub-caution-soft border-hub-caution/35",
+        label: "Media — unverified",
+      };
+  }
+}
+
+export const CATEGORIES = [
+  "all",
+  "outbreak",
+  "surveillance",
+  "contact_tracing",
+  "response",
+  "vaccine",
+  "treatment",
+  "alert",
+  "humanitarian",
+] as const;
+
+export function categoryLabel(category: string): string {
+  return category.replace(/_/g, " ");
+}
