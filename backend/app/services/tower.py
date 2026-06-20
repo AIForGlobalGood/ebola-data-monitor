@@ -1,14 +1,15 @@
 import logging
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import Article, Briefing
-from app.schemas import ControlTowerData, MapPoint, TimelineBucket, TowerAlert
+from app.schemas import ControlTowerData, DateFilterMeta, MapPoint, TimelineBucket, TowerAlert
 from app.services.dashboard import article_to_read, briefing_to_read, get_dashboard_stats
+from app.services.date_filters import apply_date_filters, date_filter_active
 from app.services.entities import LOCATION_CATALOG, SEVERITY_ORDER, locations_from_json, max_severity
 
 logger = logging.getLogger(__name__)
@@ -25,18 +26,26 @@ def _alert_sort_key(article: Article) -> tuple:
     return (tier_rank, SEVERITY_ORDER.get(article.severity, 0), article.relevance_score)
 
 
-async def get_control_tower(db: AsyncSession) -> ControlTowerData:
+async def get_control_tower(
+    db: AsyncSession,
+    *,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    date_field: str = "published",
+) -> ControlTowerData:
     stats = await get_dashboard_stats(db)
 
-    candidates = (
-        await db.scalars(
-            select(Article)
-            .options(selectinload(Article.source))
-            .where(Article.severity.in_(["critical", "high", "medium"]))
-            .order_by(Article.relevance_score.desc(), Article.published_at.desc().nullslast())
-            .limit(40)
-        )
-    ).all()
+    base = select(Article).options(selectinload(Article.source))
+    base = apply_date_filters(base, date_from=date_from, date_to=date_to, date_field=date_field)
+
+    matched = await db.scalar(select(func.count()).select_from(base.subquery())) or 0
+
+    candidates_stmt = (
+        base.where(Article.severity.in_(["critical", "high", "medium"]))
+        .order_by(Article.relevance_score.desc(), Article.published_at.desc().nullslast())
+        .limit(40)
+    )
+    candidates = (await db.scalars(candidates_stmt)).all()
     candidates.sort(key=_alert_sort_key, reverse=True)
 
     verified_alerts = [
@@ -51,15 +60,12 @@ async def get_control_tower(db: AsyncSession) -> ControlTowerData:
         if a.source_tier == "aggregator"
     ][:12]
 
-    timeline_articles = (
-        await db.scalars(
-            select(Article)
-            .options(selectinload(Article.source))
-            .where(Article.published_at.is_not(None))
-            .order_by(Article.published_at.desc())
-            .limit(100)
-        )
-    ).all()
+    timeline_stmt = (
+        base.where(Article.published_at.is_not(None))
+        .order_by(Article.published_at.desc())
+        .limit(100)
+    )
+    timeline_articles = (await db.scalars(timeline_stmt)).all()
 
     buckets: dict[str, list] = defaultdict(list)
     for article in timeline_articles:
@@ -74,7 +80,7 @@ async def get_control_tower(db: AsyncSession) -> ControlTowerData:
         for day, items in sorted(buckets.items(), reverse=True)[:14]
     ]
 
-    all_articles = (await db.scalars(select(Article))).all()
+    all_articles = (await db.scalars(base)).all()
     location_total: dict[str, int] = defaultdict(int)
     location_primary: dict[str, int] = defaultdict(int)
     location_media: dict[str, int] = defaultdict(int)
@@ -94,7 +100,6 @@ async def get_control_tower(db: AsyncSession) -> ControlTowerData:
         meta = LOCATION_CATALOG.get(name)
         if not meta:
             continue
-        # Map severity reflects primary/official signals only
         sev = location_severity.get(name, "low")
         if location_primary.get(name, 0) == 0:
             sev = "low"
@@ -121,6 +126,17 @@ async def get_control_tower(db: AsyncSession) -> ControlTowerData:
         ).all() if article_ids else []
         stats.latest_briefing = briefing_to_read(latest, list(articles))
 
+    if date_filter_active(date_from, date_to):
+        stats.total_articles = matched
+
+    filter_meta = DateFilterMeta(
+        date_from=date_from,
+        date_to=date_to,
+        date_field=date_field,
+        matched_articles=matched,
+        active=date_filter_active(date_from, date_to),
+    )
+
     return ControlTowerData(
         stats=stats,
         verified_alerts=verified_alerts,
@@ -129,4 +145,5 @@ async def get_control_tower(db: AsyncSession) -> ControlTowerData:
         timeline=timeline,
         map_points=map_points,
         disclaimer=DISCLAIMER,
+        date_filter=filter_meta,
     )

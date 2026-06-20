@@ -16,6 +16,7 @@ from app.services.entities import (
     extract_locations,
     locations_to_json,
 )
+from app.services.date_filters import apply_date_filters, parse_date_param
 from app.services.source_trust import infer_source_tier, trust_score_for_tier
 from app.services.text_utils import clean_html, normalize_title, normalize_url, title_fingerprint, titles_are_duplicate
 
@@ -262,6 +263,9 @@ async def search_articles(
     category: str | None = None,
     region: str | None = None,
     severity: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    date_field: str = "published",
     limit: int = 25,
 ) -> list[Article]:
     terms = [term.strip() for term in query.split() if term.strip()]
@@ -277,6 +281,8 @@ async def search_articles(
         stmt = stmt.where(or_(Article.region == region, Article.locations.ilike(f"%{region}%")))
     if severity:
         stmt = stmt.where(Article.severity == severity)
+
+    stmt = apply_date_filters(stmt, date_from=date_from, date_to=date_to, date_field=date_field)
 
     if terms:
         filters = []
@@ -303,6 +309,9 @@ async def get_recent_articles(
     *,
     category: str | None = None,
     severity: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    date_field: str = "published",
 ) -> list[Article]:
     stmt = (
         select(Article)
@@ -313,9 +322,21 @@ async def get_recent_articles(
         stmt = stmt.where(Article.category == category)
     if severity:
         stmt = stmt.where(Article.severity == severity)
+    stmt = apply_date_filters(stmt, date_from=date_from, date_to=date_to, date_field=date_field)
     stmt = stmt.limit(limit)
     result = await db.scalars(stmt)
     return list(result.all())
+
+
+def resolve_date_filters(
+    date_from: str | None,
+    date_to: str | None,
+    date_field: str = "published",
+) -> tuple[datetime | None, datetime | None, str]:
+    parsed_from = parse_date_param(date_from, end_of_day=False)
+    parsed_to = parse_date_param(date_to, end_of_day=True)
+    field = date_field if date_field in {"published", "fetched"} else "published"
+    return parsed_from, parsed_to, field
 
 
 async def get_alerts(db: AsyncSession, limit: int = 20) -> list[Article]:

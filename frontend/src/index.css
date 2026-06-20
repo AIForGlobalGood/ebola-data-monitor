@@ -6,13 +6,103 @@
   color-scheme: dark;
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at 85% 5%, rgba(239, 68, 68, 0.14), transparent 28%),
-    radial-gradient(circle at 10% 90%, rgba(20, 184, 166, 0.1), transparent 22%),
-    linear-gradient(180deg, #0b1220 0%, #0a1018 100%);
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply min-h-screen bg-hub-bg font-sans text-hub-text;
+    background-image:
+      radial-gradient(ellipse 90% 60% at 50% -30%, rgba(239, 90, 90, 0.08), transparent 55%),
+      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(77, 181, 255, 0.05), transparent 50%),
+      linear-gradient(180deg, #060a10 0%, #080d14 100%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgba(77, 181, 255, 0.3);
+    color: white;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-hub-border bg-hub-elevated/80 shadow-panel backdrop-blur-sm;
+  }
+
+  .panel-header {
+    @apply border-b border-hub-border px-5 py-4;
+  }
+
+  .panel-body {
+    @apply p-5;
+  }
+
+  .eyebrow {
+    @apply font-mono text-xs font-medium uppercase tracking-widest text-hub-subtle;
+  }
+
+  .section-title {
+    @apply text-lg font-semibold tracking-tight text-hub-text;
+  }
+
+  .section-desc {
+    @apply mt-1 text-sm leading-relaxed text-hub-muted;
+  }
+
+  .input-field {
+    @apply w-full rounded-xl border border-hub-border bg-hub-surface px-3.5 py-2.5 text-sm text-hub-text outline-none transition placeholder:text-hub-subtle focus:border-hub-info/50 focus:ring-2 focus:ring-hub-info/20;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition disabled:pointer-events-none disabled:opacity-40;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-hub-border bg-hub-surface px-4 py-2.5 text-sm font-medium text-hub-text transition hover:bg-hub-card disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-hub-crisis px-4 py-2.5 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-40;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-hub-verified/30 bg-hub-verified-soft px-4 py-2.5 text-sm font-medium text-hub-verified transition disabled:opacity-40;
+  }
+
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-hub-caution/30 bg-hub-caution-soft px-4 py-2.5 text-sm font-medium text-hub-caution transition disabled:opacity-40;
+  }
+
+  .nav-item {
+    @apply flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-hub-muted transition hover:bg-hub-card hover:text-hub-text;
+  }
+
+  .nav-item-active {
+    @apply flex w-full items-center gap-3 rounded-xl bg-hub-card px-3 py-2.5 text-sm font-medium text-hub-text shadow-panel;
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium capitalize transition;
+  }
+
+  .chip-active {
+    @apply inline-flex items-center rounded-full border border-hub-info/40 bg-hub-info-soft px-2.5 py-1 text-xs font-medium capitalize text-hub-info transition;
+  }
+
+  .chip-idle {
+    @apply inline-flex items-center rounded-full border border-hub-border bg-hub-surface px-2.5 py-1 text-xs font-medium capitalize text-hub-muted transition hover:text-hub-text;
+  }
+
+  .metric-value {
+    @apply font-mono text-3xl font-medium tracking-tight text-hub-text;
+  }
+
+  .live-dot {
+    @apply relative inline-flex h-2 w-2 rounded-full bg-hub-verified;
+    box-shadow: 0 0 8px rgba(62, 207, 142, 0.75);
+  }
 }
 
 * {
@@ -20,11 +110,15 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: rgba(148, 163, 184, 0.22);
   border-radius: 999px;
 }

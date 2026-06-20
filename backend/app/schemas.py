@@ -53,7 +53,18 @@ class SearchRequest(BaseModel):
     category: str | None = None
     region: str | None = None
     severity: str | None = None
+    date_from: str | None = None
+    date_to: str | None = None
+    date_field: str = Field(default="published", pattern="^(published|fetched)$")
     limit: int = Field(default=25, ge=1, le=100)
+
+
+class DateFilterMeta(BaseModel):
+    date_from: datetime | None = None
+    date_to: datetime | None = None
+    date_field: str = "published"
+    matched_articles: int = 0
+    active: bool = False
 
 
 class CitedFinding(BaseModel):
@@ -67,6 +78,9 @@ class BriefingRequest(BaseModel):
     title: str | None = None
     article_ids: list[int] | None = None
     focus: str = "situational awareness"
+    date_from: str | None = None
+    date_to: str | None = None
+    date_field: str = Field(default="published", pattern="^(published|fetched)$")
 
 
 class BriefingRead(BaseModel):
@@ -137,3 +151,4 @@ class ControlTowerData(BaseModel):
     timeline: list[TimelineBucket]
     map_points: list[MapPoint]
     disclaimer: str
+    date_filter: DateFilterMeta = Field(default_factory=DateFilterMeta)

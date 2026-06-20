@@ -1,36 +1,42 @@
 .crisis-map .leaflet-container {
-  background: #0a1628;
-  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  background: #0c1219;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
 }
 
 .crisis-map .leaflet-control-attribution {
-  background: rgba(11, 18, 32, 0.85) !important;
-  color: #64748b !important;
-  font-size: 10px;
+  background: rgba(6, 10, 16, 0.9) !important;
+  color: #5c708a !important;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
 }
 
 .crisis-map .leaflet-control-attribution a {
-  color: #94a3b8 !important;
+  color: #8fa3b8 !important;
 }
 
 .crisis-map .leaflet-bar {
-  border: 1px solid #2a3548 !important;
+  border: 1px solid rgba(148, 163, 184, 0.15) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
   box-shadow: none !important;
 }
 
 .crisis-map .leaflet-bar a {
-  background: #111827 !important;
-  color: #e5e7eb !important;
-  border-bottom-color: #2a3548 !important;
+  background: #111a24 !important;
+  color: #f0f4f8 !important;
+  border-bottom-color: rgba(148, 163, 184, 0.12) !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
 }
 
 .crisis-map .leaflet-bar a:hover {
-  background: #1a2332 !important;
+  background: #141f2b !important;
 }
 
 .crisis-popup .leaflet-popup-content-wrapper {
-  border-radius: 0.75rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
 
 .crisis-popup .leaflet-popup-tip {

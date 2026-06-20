@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from "react-leaflet";
 import { MapPoint } from "../api";
 import { severityStyles } from "../utils";
+import { PanelHeader } from "./ui/Panel";
 import "./map.css";
 
 const AFRICA_CENTER: L.LatLngExpression = [0.5, 22];
@@ -11,13 +12,13 @@ const DEFAULT_ZOOM = 3;
 function severityColor(severity: string): string {
   switch (severity) {
     case "critical":
-      return "#ef4444";
+      return "#ef5a5a";
     case "high":
-      return "#f97316";
+      return "#fb923c";
     case "medium":
-      return "#f59e0b";
+      return "#f5b942";
     default:
-      return "#64748b";
+      return "#5c708a";
   }
 }
 
@@ -49,23 +50,16 @@ export function RegionMap({ points }: { points: MapPoint[] }) {
   const sorted = [...points].sort((a, b) => b.primary_count - a.primary_count);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-hub-border bg-[#0a1628]">
-      <div className="border-b border-hub-border px-4 py-3">
-        <h3 className="text-sm font-semibold">Geographic signal map</h3>
-        <p className="text-xs text-hub-muted">Interactive map — pan and zoom to explore detected locations</p>
-        <p className="text-[10px] text-amber-400/80">Marker severity reflects primary/official sources only</p>
-      </div>
-
-      <div className="crisis-map relative h-[440px] w-full">
-        <MapContainer
-          center={AFRICA_CENTER}
-          zoom={DEFAULT_ZOOM}
-          scrollWheelZoom
-          className="h-full w-full"
-          attributionControl
-        >
+    <div className="panel overflow-hidden">
+      <PanelHeader
+        eyebrow="Geospatial"
+        title="Signal map"
+        description="Interactive · severity from primary sources only"
+      />
+      <div className="crisis-map relative h-[460px] w-full">
+        <MapContainer center={AFRICA_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom className="h-full w-full">
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
+            attribution='&copy; OSM &copy; CARTO'
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
           <FitBounds points={sorted} />
@@ -81,50 +75,50 @@ export function RegionMap({ points }: { points: MapPoint[] }) {
                 pathOptions={{
                   color,
                   fillColor: color,
-                  fillOpacity: point.primary_count > 0 ? 0.75 : 0.35,
+                  fillOpacity: point.primary_count > 0 ? 0.8 : 0.35,
                   weight: point.primary_count > 0 ? 2 : 1,
-                  opacity: 0.9,
+                  opacity: 0.95,
                 }}
               >
                 <Popup className="crisis-popup">
-                  <div className="min-w-[200px] space-y-2 text-sm">
-                    <p className="font-semibold text-slate-900">{point.location}</p>
-                    <p className={`inline-block rounded-full border px-2 py-0.5 text-xs capitalize ${sev.badge}`}>
-                      {point.severity} (primary-source view)
-                    </p>
-                    <ul className="space-y-1 text-xs text-slate-700">
-                      <li>
-                        <span className="font-medium text-emerald-700">{point.primary_count}</span> primary / official
-                        signals
-                      </li>
-                      <li>
-                        <span className="font-medium text-amber-700">{point.media_count}</span> unverified media mentions
-                      </li>
-                      <li>{point.count} total indexed articles mentioning this location</li>
-                    </ul>
+                  <div className="min-w-[220px] space-y-2.5 p-1">
+                    <p className="font-display text-sm font-semibold text-slate-900">{point.location}</p>
+                    <span className={`inline-block rounded-full border px-2 py-0.5 text-2xs capitalize ${sev.badge}`}>
+                      {point.severity}
+                    </span>
+                    <dl className="space-y-1 font-mono text-2xs text-slate-600">
+                      <div className="flex justify-between">
+                        <dt>Primary / official</dt>
+                        <dd className="font-medium text-emerald-700">{point.primary_count}</dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt>Media (unverified)</dt>
+                        <dd className="font-medium text-amber-700">{point.media_count}</dd>
+                      </div>
+                      <div className="flex justify-between border-t border-slate-200 pt-1">
+                        <dt>Total mentions</dt>
+                        <dd>{point.count}</dd>
+                      </div>
+                    </dl>
                   </div>
                 </Popup>
               </CircleMarker>
             );
           })}
         </MapContainer>
-
         {sorted.length === 0 && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-hub-bg/30">
-            <p className="rounded-lg border border-hub-border bg-hub-panel/90 px-4 py-2 text-sm text-hub-muted">
-              No geotagged locations yet — fetch sources to populate the map
-            </p>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-hub-bg/40">
+            <p className="panel px-4 py-2 text-sm text-hub-muted">No geotagged locations yet</p>
           </div>
         )}
       </div>
-
-      <div className="flex flex-wrap items-center gap-4 border-t border-hub-border px-4 py-2 text-xs text-hub-muted">
-        <span className="text-hub-muted">Marker size ∝ signal volume</span>
+      <div className="flex flex-wrap items-center gap-4 border-t border-hub-border px-5 py-3 font-mono text-2xs text-hub-subtle">
+        <span>Marker size ∝ volume</span>
         {["critical", "high", "medium", "low"].map((level) => {
           const sev = severityStyles(level);
           return (
             <span key={level} className="inline-flex items-center gap-1.5 capitalize">
-              <span className={`h-2.5 w-2.5 rounded-full ${sev.dot}`} />
+              <span className={`h-2 w-2 rounded-full ${sev.dot}`} />
               {level}
             </span>
           );

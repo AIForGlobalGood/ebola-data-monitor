@@ -1,3 +1,5 @@
+import type { DateFilterParams } from "./dateFilters";
+
 export interface CitedFinding {
   text: string;
   article_ids: number[];
@@ -96,6 +98,14 @@ export interface MapPoint {
   severity: string;
 }
 
+export interface DateFilterMeta {
+  date_from: string | null;
+  date_to: string | null;
+  date_field: string;
+  matched_articles: number;
+  active: boolean;
+}
+
 export interface ControlTowerData {
   stats: DashboardStats;
   verified_alerts: TowerAlert[];
@@ -104,6 +114,7 @@ export interface ControlTowerData {
   timeline: TimelineBucket[];
   map_points: MapPoint[];
   disclaimer: string;
+  date_filter?: DateFilterMeta;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -118,26 +129,67 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+function appendDateParams(params: URLSearchParams, filters?: DateFilterParams) {
+  if (!filters) return;
+  if (filters.date_from) params.set("date_from", filters.date_from);
+  if (filters.date_to) params.set("date_to", filters.date_to);
+  if (filters.date_field) params.set("date_field", filters.date_field);
+}
+
 export const api = {
-  tower: () => request<ControlTowerData>("/api/tower"),
+  tower: (filters?: DateFilterParams) => {
+    const params = new URLSearchParams();
+    appendDateParams(params, filters);
+    const qs = params.toString();
+    return request<ControlTowerData>(`/api/tower${qs ? `?${qs}` : ""}`);
+  },
   dashboard: () => request<DashboardStats>("/api/dashboard"),
   sources: () => request<Source[]>("/api/sources"),
   fetchAll: () => request<FetchResult[]>("/api/sources/fetch-all", { method: "POST" }),
-  feed: (limit = 50, category?: string, severity?: string) => {
+  feed: (
+    limit = 50,
+    category?: string,
+    severity?: string,
+    filters?: DateFilterParams,
+  ) => {
     const params = new URLSearchParams({ limit: String(limit) });
     if (category) params.set("category", category);
     if (severity) params.set("severity", severity);
+    appendDateParams(params, filters);
     return request<Article[]>(`/api/feed?${params}`);
   },
-  search: (query: string, category?: string, severity?: string) =>
+  search: (
+    query: string,
+    category?: string,
+    severity?: string,
+    filters?: DateFilterParams,
+  ) =>
     request<Article[]>("/api/search", {
       method: "POST",
-      body: JSON.stringify({ query, category, severity, limit: 30 }),
+      body: JSON.stringify({
+        query,
+        category,
+        severity,
+        limit: 30,
+        date_from: filters?.date_from,
+        date_to: filters?.date_to,
+        date_field: filters?.date_field ?? "published",
+      }),
     }),
   briefings: () => request<Briefing[]>("/api/briefings"),
-  generateBriefing: (query?: string, focus = "situational awareness") =>
+  generateBriefing: (
+    query?: string,
+    focus = "situational awareness",
+    filters?: DateFilterParams,
+  ) =>
     request<Briefing>("/api/briefings/generate", {
       method: "POST",
-      body: JSON.stringify({ query, focus }),
+      body: JSON.stringify({
+        query,
+        focus,
+        date_from: filters?.date_from,
+        date_to: filters?.date_to,
+        date_field: filters?.date_field ?? "published",
+      }),
     }),
 };

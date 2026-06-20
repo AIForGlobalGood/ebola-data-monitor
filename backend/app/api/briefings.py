@@ -9,7 +9,7 @@ from app.db.database import get_db
 from app.models import Article, Briefing
 from app.schemas import BriefingRead, BriefingRequest
 from app.services.dashboard import briefing_to_read
-from app.services.ingestion import get_articles_by_ids, search_articles
+from app.services.ingestion import get_articles_by_ids, resolve_date_filters, search_articles
 from app.services.synthesizer import synthesize_briefing
 
 router = APIRouter()
@@ -36,12 +36,30 @@ async def list_briefings(
 
 @router.post("/generate", response_model=BriefingRead)
 async def generate_briefing(payload: BriefingRequest, db: AsyncSession = Depends(get_db)) -> BriefingRead:
+    parsed_from, parsed_to, field = resolve_date_filters(
+        payload.date_from, payload.date_to, payload.date_field
+    )
+
     if payload.article_ids:
         articles = await get_articles_by_ids(db, payload.article_ids)
     elif payload.query:
-        articles = await search_articles(db, payload.query, limit=20)
+        articles = await search_articles(
+            db,
+            payload.query,
+            limit=20,
+            date_from=parsed_from,
+            date_to=parsed_to,
+            date_field=field,
+        )
     else:
-        articles = await search_articles(db, "ebola outbreak vaccine", limit=15)
+        articles = await search_articles(
+            db,
+            "ebola outbreak vaccine",
+            limit=15,
+            date_from=parsed_from,
+            date_to=parsed_to,
+            date_field=field,
+        )
 
     result = await synthesize_briefing(payload.query, payload.focus, articles)
 

@@ -12,26 +12,26 @@ export function severityStyles(severity: string) {
   switch (severity) {
     case "critical":
       return {
-        badge: "text-red-300 bg-red-500/15 border-red-500/40",
-        dot: "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]",
+        badge: "text-hub-crisis bg-hub-crisis-soft border-hub-crisis/35",
+        dot: "bg-hub-crisis shadow-[0_0_10px_rgba(239,90,90,0.75)]",
         label: "Critical",
       };
     case "high":
       return {
-        badge: "text-orange-300 bg-orange-500/15 border-orange-500/40",
-        dot: "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.7)]",
+        badge: "text-orange-300 bg-orange-500/12 border-orange-500/35",
+        dot: "bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.6)]",
         label: "High",
       };
     case "medium":
       return {
-        badge: "text-amber-300 bg-amber-500/15 border-amber-500/40",
-        dot: "bg-amber-400",
+        badge: "text-hub-caution bg-hub-caution-soft border-hub-caution/35",
+        dot: "bg-hub-caution",
         label: "Medium",
       };
     default:
       return {
-        badge: "text-slate-300 bg-slate-500/15 border-slate-500/40",
-        dot: "bg-slate-400",
+        badge: "text-hub-muted bg-hub-surface border-hub-border",
+        dot: "bg-hub-subtle",
         label: "Low",
       };
   }
@@ -40,13 +40,13 @@ export function severityStyles(severity: string) {
 export function confidenceStyles(confidence: string) {
   switch (confidence) {
     case "confirmed":
-      return "text-emerald-300 bg-emerald-500/10 border-emerald-500/30";
+      return "text-hub-verified bg-hub-verified-soft border-hub-verified/35";
     case "likely":
-      return "text-sky-300 bg-sky-500/10 border-sky-500/30";
+      return "text-hub-info bg-hub-info-soft border-hub-info/35";
     case "unverified":
-      return "text-amber-300 bg-amber-500/10 border-amber-500/30";
+      return "text-hub-caution bg-hub-caution-soft border-hub-caution/35";
     default:
-      return "text-slate-400 bg-slate-500/10 border-slate-500/30";
+      return "text-hub-muted bg-hub-surface border-hub-border";
   }
 }
 
@@ -54,17 +54,17 @@ export function tierStyles(tier: string) {
   switch (tier) {
     case "primary":
       return {
-        badge: "text-emerald-300 bg-emerald-500/12 border-emerald-500/35",
+        badge: "text-hub-verified bg-hub-verified-soft border-hub-verified/35",
         label: "Primary source",
       };
     case "official":
       return {
-        badge: "text-sky-300 bg-sky-500/12 border-sky-500/35",
+        badge: "text-hub-info bg-hub-info-soft border-hub-info/35",
         label: "Official source",
       };
     default:
       return {
-        badge: "text-amber-300 bg-amber-500/12 border-amber-500/35",
+        badge: "text-hub-caution bg-hub-caution-soft border-hub-caution/35",
         label: "Media — unverified",
       };
   }
