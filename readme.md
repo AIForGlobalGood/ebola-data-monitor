@@ -122,7 +122,7 @@ Or push to `main` if Git integration is connected.
 ### Limitations on Vercel
 
 - **SQLite is ephemeral** — data lives in `/tmp` on serverless functions and can reset on cold starts. Fine for demos; for persistent production data use [Turso](https://turso.tech), Neon, or run the backend on Railway/Render with a volume.
-- **Background fetch** is replaced by Vercel Cron (`/api/cron/ingest` every 6 hours). Use **Fetch All Sources** in the UI for on-demand ingest.
+- **Background fetch** is replaced by Vercel Cron (`/api/cron/ingest` once daily at 12:00 UTC on Hobby). Use **Fetch All Sources** in the UI for on-demand ingest.
 - **Cron jobs** require a Vercel [Pro plan](https://vercel.com/docs/cron-jobs) on some accounts; Hobby may have limits.
 
 ### Frontend-only on Vercel (backend elsewhere)
