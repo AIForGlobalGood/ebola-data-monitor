@@ -36,19 +36,29 @@ def extract_locations(title: str, summary: str | None) -> list[str]:
     return found
 
 
-def compute_severity(title: str, summary: str | None, category: str, relevance: float) -> str:
+def compute_severity(
+    title: str,
+    summary: str | None,
+    category: str,
+    relevance: float,
+    source_tier: str = "aggregator",
+) -> str:
     text = f"{title} {summary or ''}".lower()
     has_ebola = "ebola" in text or "filovirus" in text or "marburg" in text
     has_outbreak = any(k in text for k in ("outbreak", "cases", "confirmed", "epidemic", "cluster"))
     has_alert = any(k in text for k in ("emergency", "alert", "death", "fatal"))
 
+    raw = "low"
     if has_ebola and has_outbreak and (has_alert or relevance >= 0.75):
-        return "critical"
-    if has_ebola and (has_outbreak or category == "outbreak") and relevance >= 0.5:
-        return "high"
-    if relevance >= 0.55 or category in {"outbreak", "alert"}:
-        return "medium"
-    return "low"
+        raw = "critical"
+    elif has_ebola and (has_outbreak or category == "outbreak") and relevance >= 0.5:
+        raw = "high"
+    elif relevance >= 0.55 or category in {"outbreak", "alert"}:
+        raw = "medium"
+
+    from app.services.source_trust import cap_severity_for_tier
+
+    return cap_severity_for_tier(raw, source_tier)
 
 
 def locations_to_json(locations: list[str]) -> str | None:

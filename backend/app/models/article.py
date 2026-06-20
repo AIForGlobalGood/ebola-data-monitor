@@ -25,5 +25,7 @@ class Article(Base):
     relevance_score: Mapped[float] = mapped_column(Float, default=0.0)
     severity: Mapped[str] = mapped_column(String(20), default="low")
     locations: Mapped[str | None] = mapped_column(Text)
+    source_tier: Mapped[str] = mapped_column(String(20), default="aggregator")
+    trust_score: Mapped[float] = mapped_column(Float, default=0.45)
 
     source = relationship("Source", back_populates="articles")

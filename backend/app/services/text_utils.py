@@ -37,11 +37,18 @@ def normalize_title(title: str) -> str:
     return re.sub(r"\s+", " ", lowered).strip()
 
 
+def title_fingerprint(title: str) -> str:
+    words = normalize_title(title).split()
+    return " ".join(words[:12])
+
+
 def titles_are_duplicate(a: str, b: str) -> bool:
     na, nb = normalize_title(a), normalize_title(b)
     if not na or not nb:
         return False
     if na == nb:
+        return True
+    if title_fingerprint(a) == title_fingerprint(b) and len(na) >= 20:
         return True
     short, long = (na, nb) if len(na) <= len(nb) else (nb, na)
     return len(short) >= 30 and short in long

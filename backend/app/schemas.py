@@ -43,6 +43,8 @@ class ArticleRead(BaseModel):
     relevance_score: float
     severity: str = "low"
     locations: list[str] = Field(default_factory=list)
+    source_tier: str = "aggregator"
+    trust_score: float = 0.45
     source_name: str | None = None
 
 
@@ -92,6 +94,8 @@ class DashboardStats(BaseModel):
     categories: dict[str, int]
     regions: dict[str, int]
     severity_24h: dict[str, int] = Field(default_factory=dict)
+    trust_by_tier: dict[str, int] = Field(default_factory=dict)
+    primary_signals_24h: int = 0
     latest_briefing: BriefingRead | None = None
 
 
@@ -120,11 +124,16 @@ class MapPoint(BaseModel):
     lat: float
     lng: float
     count: int
+    primary_count: int = 0
+    media_count: int = 0
     severity: str
 
 
 class ControlTowerData(BaseModel):
     stats: DashboardStats
+    verified_alerts: list[TowerAlert]
+    media_signals: list[TowerAlert]
     alerts: list[TowerAlert]
     timeline: list[TimelineBucket]
     map_points: list[MapPoint]
+    disclaimer: str

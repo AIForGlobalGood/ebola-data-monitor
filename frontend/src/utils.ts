@@ -41,17 +41,33 @@ export function confidenceStyles(confidence: string) {
   switch (confidence) {
     case "confirmed":
       return "text-emerald-300 bg-emerald-500/10 border-emerald-500/30";
-    case "unverified":
-      return "text-slate-400 bg-slate-500/10 border-slate-500/30";
-    default:
+    case "likely":
       return "text-sky-300 bg-sky-500/10 border-sky-500/30";
+    case "unverified":
+      return "text-amber-300 bg-amber-500/10 border-amber-500/30";
+    default:
+      return "text-slate-400 bg-slate-500/10 border-slate-500/30";
+  }
+}
+
+export function tierStyles(tier: string) {
+  switch (tier) {
+    case "primary":
+      return {
+        badge: "text-emerald-300 bg-emerald-500/12 border-emerald-500/35",
+        label: "Primary source",
+      };
+    case "official":
+      return {
+        badge: "text-sky-300 bg-sky-500/12 border-sky-500/35",
+        label: "Official source",
+      };
+    default:
+      return {
+        badge: "text-amber-300 bg-amber-500/12 border-amber-500/35",
+        label: "Media — unverified",
+      };
   }
 }
 
 export const CATEGORIES = ["all", "outbreak", "vaccine", "treatment", "alert", "humanitarian", "health", "surveillance"] as const;
-
-export function latLngToXY(lat: number, lng: number, width: number, height: number) {
-  const x = ((lng + 180) / 360) * width;
-  const y = ((90 - lat) / 180) * height;
-  return { x, y };
-}

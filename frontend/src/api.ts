@@ -13,6 +13,8 @@ export interface DashboardStats {
   categories: Record<string, number>;
   regions: Record<string, number>;
   severity_24h: Record<string, number>;
+  trust_by_tier: Record<string, number>;
+  primary_signals_24h: number;
   latest_briefing: Briefing | null;
 }
 
@@ -45,6 +47,8 @@ export interface Article {
   relevance_score: number;
   severity: string;
   locations: string[];
+  source_tier: string;
+  trust_score: number;
   source_name: string | null;
 }
 
@@ -87,14 +91,19 @@ export interface MapPoint {
   lat: number;
   lng: number;
   count: number;
+  primary_count: number;
+  media_count: number;
   severity: string;
 }
 
 export interface ControlTowerData {
   stats: DashboardStats;
+  verified_alerts: TowerAlert[];
+  media_signals: TowerAlert[];
   alerts: TowerAlert[];
   timeline: TimelineBucket[];
   map_points: MapPoint[];
+  disclaimer: string;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

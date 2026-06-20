@@ -5,6 +5,7 @@ from app.config import get_settings
 from app.models import Article
 from app.schemas import CitedFinding
 from app.services.entities import locations_from_json
+from app.services.source_trust import aggregate_confidence, confidence_for_articles
 from app.services.text_utils import clean_html
 
 
@@ -51,7 +52,7 @@ Analyst request: {user_query}
 Use ONLY the articles below. Be factual, flag uncertainty, and separate confirmed facts from speculation.
 Structure your response as JSON with keys:
 - summary (2-4 paragraph executive overview)
-- findings (array of objects, each with: text, article_ids [integers from Article ID labels], confidence one of confirmed|likely|unverified)
+- findings (array of objects, each with: text, article_ids [integers from Article ID labels], confidence one of confirmed|likely|unverified — use confirmed ONLY when citing WHO/CDC/ReliefWeb primary sources)
 - recommendations (array of 3-5 actionable strings for program staff)
 
 Articles:
@@ -67,7 +68,8 @@ def _mock_synthesis(query: str | None, articles: list[Article]) -> SynthesisResu
     findings: list[CitedFinding] = []
     for article in top[:5]:
         summary = clean_html(article.summary, max_length=180) or article.title
-        confidence = "confirmed" if article.severity in {"critical", "high"} else "likely"
+        tier = getattr(article, "source_tier", "aggregator")
+        confidence = confidence_for_articles(tier)
         findings.append(
             CitedFinding(
                 text=f"{summary} ({article.source.name if article.source else 'source'})",
@@ -77,11 +79,12 @@ def _mock_synthesis(query: str | None, articles: list[Article]) -> SynthesisResu
         )
 
     if len(top) > 5:
+        extra_tiers = [getattr(a, "source_tier", "aggregator") for a in top[5:10]]
         findings.append(
             CitedFinding(
                 text=f"{len(articles) - 5} additional articles indexed across {', '.join(categories) or 'multiple categories'}.",
                 article_ids=[a.id for a in top[5:10]],
-                confidence="likely",
+                confidence=aggregate_confidence(extra_tiers),
             )
         )
 
@@ -90,6 +93,7 @@ def _mock_synthesis(query: str | None, articles: list[Article]) -> SynthesisResu
             f"Situational digest synthesizing {len(articles)} public articles"
             + (f' for "{query}"' if query else "")
             + f". Priority signal: {top[0].title}."
+            + " Findings are tagged by source tier — only primary/agency sources marked confirmed."
         )
         if top
         else "No articles available."
@@ -119,11 +123,20 @@ def _parse_llm_payload(payload: dict, articles: list[Article]) -> SynthesisResul
         if not isinstance(item, dict):
             continue
         article_ids = [int(i) for i in item.get("article_ids", []) if int(i) in valid_ids]
+        cited_tiers = [
+            getattr(a, "source_tier", "aggregator")
+            for a in articles
+            if a.id in article_ids
+        ]
+        confidence = str(item.get("confidence", aggregate_confidence(cited_tiers)))
+        # Never allow confirmed unless all cited sources are primary/official
+        if confidence == "confirmed" and not all(t in {"primary", "official"} for t in cited_tiers):
+            confidence = aggregate_confidence(cited_tiers)
         findings.append(
             CitedFinding(
                 text=str(item.get("text", "")),
                 article_ids=article_ids,
-                confidence=str(item.get("confidence", "likely")),
+                confidence=confidence,
             )
         )
 

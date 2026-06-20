@@ -1,6 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { Article, Briefing } from "../api";
-import { confidenceStyles, formatDate, severityStyles } from "../utils";
+import { confidenceStyles, formatDate, severityStyles, tierStyles } from "../utils";
+import { TrustDisclaimer } from "./TrustDisclaimer";
 
 function articleLookup(articles: Article[]) {
   return new Map(articles.map((a) => [a.id, a]));
@@ -17,6 +18,8 @@ export function BriefingPanel({ briefing }: { briefing: Briefing }) {
           {briefing.provider}
         </span>
       </div>
+
+      <TrustDisclaimer compact />
 
       <p className="text-sm leading-relaxed text-hub-text">{briefing.summary}</p>
 
@@ -37,6 +40,7 @@ export function BriefingPanel({ briefing }: { briefing: Briefing }) {
                     {finding.article_ids.map((id) => {
                       const article = lookup.get(id);
                       if (!article) return null;
+                      const tier = tierStyles(article.source_tier ?? "aggregator");
                       return (
                         <a
                           key={id}
@@ -46,6 +50,7 @@ export function BriefingPanel({ briefing }: { briefing: Briefing }) {
                           className="inline-flex max-w-full items-center gap-1 rounded-md border border-hub-border bg-hub-panel px-2 py-1 text-xs text-hub-teal hover:border-hub-teal/50"
                         >
                           <ExternalLink className="h-3 w-3 shrink-0" />
+                          <span className={`rounded border px-1 text-[9px] ${tier.badge}`}>{tier.label.split(" ")[0]}</span>
                           <span className="truncate">{article.title}</span>
                         </a>
                       );
@@ -70,19 +75,29 @@ export function BriefingPanel({ briefing }: { briefing: Briefing }) {
   );
 }
 
-export function AlertPanel({ alerts }: { alerts: { article: Article; severity: string }[] }) {
+export function AlertPanel({
+  alerts,
+  title,
+  emptyMessage,
+}: {
+  alerts: { article: Article; severity: string }[];
+  title?: string;
+  emptyMessage?: string;
+}) {
   if (alerts.length === 0) {
     return (
       <div className="rounded-xl border border-hub-border bg-hub-panel/60 p-5 text-sm text-hub-muted">
-        No active alerts. Fetch sources or lower the severity threshold by ingesting more feeds.
+        {emptyMessage ?? "No alerts in this category."}
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
+      {title && <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-hub-muted">{title}</h3>}
       {alerts.map(({ article, severity }) => {
         const sev = severityStyles(severity);
+        const tier = tierStyles(article.source_tier ?? "aggregator");
         return (
           <div
             key={article.id}
@@ -93,6 +108,9 @@ export function AlertPanel({ alerts }: { alerts: { article: Article; severity: s
             </div>
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex flex-wrap items-center gap-2">
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${tier.badge}`}>
+                  {tier.label}
+                </span>
                 <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${sev.badge}`}>
                   {sev.label}
                 </span>

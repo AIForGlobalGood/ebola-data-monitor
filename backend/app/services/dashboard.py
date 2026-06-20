@@ -26,6 +26,8 @@ def article_to_read(article: Article) -> ArticleRead:
         relevance_score=article.relevance_score,
         severity=getattr(article, "severity", "low") or "low",
         locations=locations_from_json(getattr(article, "locations", None)),
+        source_tier=getattr(article, "source_tier", "aggregator") or "aggregator",
+        trust_score=float(getattr(article, "trust_score", 0.45) or 0.45),
         source_name=article.source.name if article.source else None,
     )
 
@@ -84,6 +86,19 @@ async def get_dashboard_stats(db: AsyncSession) -> DashboardStats:
     )
     severity_24h = {row[0]: row[1] for row in severity_rows.all()}
 
+    tier_rows = await db.execute(
+        select(Article.source_tier, func.count())
+        .where(Article.fetched_at >= since)
+        .group_by(Article.source_tier)
+    )
+    trust_by_tier = {row[0]: row[1] for row in tier_rows.all()}
+
+    primary_signals_24h = await db.scalar(
+        select(func.count())
+        .select_from(Article)
+        .where(Article.fetched_at >= since, Article.source_tier == "primary")
+    ) or 0
+
     latest = await db.scalar(select(Briefing).order_by(Briefing.created_at.desc()).limit(1))
     latest_briefing = None
     if latest:
@@ -104,6 +119,8 @@ async def get_dashboard_stats(db: AsyncSession) -> DashboardStats:
         categories=categories,
         regions=regions,
         severity_24h=severity_24h,
+        trust_by_tier=trust_by_tier,
+        primary_signals_24h=primary_signals_24h,
         latest_briefing=latest_briefing,
     )
 

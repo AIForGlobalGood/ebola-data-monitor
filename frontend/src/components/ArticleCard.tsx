@@ -1,8 +1,9 @@
 import { Article } from "../api";
-import { formatDate, severityStyles } from "../utils";
+import { formatDate, severityStyles, tierStyles } from "../utils";
 
 export function ArticleCard({ article, compact = false }: { article: Article; compact?: boolean }) {
   const sev = severityStyles(article.severity);
+  const tier = tierStyles(article.source_tier ?? "aggregator");
 
   return (
     <article className="rounded-xl border border-hub-border bg-hub-panel/70 p-4 transition hover:border-hub-teal/40">
@@ -16,6 +17,7 @@ export function ArticleCard({ article, compact = false }: { article: Article; co
           {article.title}
         </a>
         <div className="flex shrink-0 flex-wrap gap-1.5">
+          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${tier.badge}`}>{tier.label}</span>
           <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${sev.badge}`}>{sev.label}</span>
           <span className="rounded-full border border-hub-border px-2 py-0.5 text-xs text-hub-muted">
             {(article.relevance_score * 100).toFixed(0)}%

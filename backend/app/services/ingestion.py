@@ -16,7 +16,8 @@ from app.services.entities import (
     extract_locations,
     locations_to_json,
 )
-from app.services.text_utils import clean_html, normalize_title, normalize_url, titles_are_duplicate
+from app.services.source_trust import infer_source_tier, trust_score_for_tier
+from app.services.text_utils import clean_html, normalize_title, normalize_url, title_fingerprint, titles_are_duplicate
 
 EBOLA_KEYWORDS = re.compile(
     r"\b(ebola|hemorrhagic|outbreak|epidemic|vaccine|vaccination|"
@@ -114,16 +115,19 @@ def _infer_category(title: str, summary: str | None, default: str) -> str:
     return default
 
 
-def _enrich_article_fields(title: str, summary: str | None, category: str) -> dict:
+def _enrich_article_fields(title: str, summary: str | None, category: str, source: Source) -> dict:
+    tier = infer_source_tier(source.url, source.name)
     relevance = _score_relevance(title, summary)
-    severity = compute_severity(title, summary, category, relevance)
+    severity = compute_severity(title, summary, category, relevance, source_tier=tier)
     locations = extract_locations(title, summary)
-    region = locations[0] if locations else None
+    region = locations[0] if locations else source.region
     return {
         "relevance_score": relevance,
         "severity": severity,
         "locations": locations_to_json(locations),
         "region": region,
+        "source_tier": tier,
+        "trust_score": trust_score_for_tier(tier),
     }
 
 
@@ -135,14 +139,12 @@ async def _is_duplicate(db: AsyncSession, url: str, title: str) -> bool:
     if existing_url:
         return True
 
-    norm_title = normalize_title(title)
-    if len(norm_title) < 20:
-        return False
-
-    recent_titles = await db.scalars(select(Article.title).order_by(Article.fetched_at.desc()).limit(300))
-    for existing in recent_titles.all():
-        if titles_are_duplicate(title, existing):
-            return True
+    fp = title_fingerprint(title)
+    if len(fp) >= 15:
+        recent = await db.scalars(select(Article.title).order_by(Article.fetched_at.desc()).limit(500))
+        for existing in recent.all():
+            if title_fingerprint(existing) == fp or titles_are_duplicate(title, existing):
+                return True
     return False
 
 
@@ -166,7 +168,10 @@ async def reprocess_articles(db: AsyncSession) -> int:
     for article in articles:
         cleaned = clean_html(article.summary)
         category = _infer_category(article.title, cleaned, article.category)
-        enriched = _enrich_article_fields(article.title, cleaned, category)
+        source = await db.get(Source, article.source_id)
+        if not source:
+            continue
+        enriched = _enrich_article_fields(article.title, cleaned, category, source)
         article.summary = cleaned
         article.category = category
         article.relevance_score = enriched["relevance_score"]
@@ -174,6 +179,8 @@ async def reprocess_articles(db: AsyncSession) -> int:
         article.locations = enriched["locations"]
         if enriched["region"]:
             article.region = enriched["region"]
+        article.source_tier = enriched["source_tier"]
+        article.trust_score = enriched["trust_score"]
         updated += 1
     if updated:
         await db.commit()
@@ -208,7 +215,7 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
         raw_summary = entry.get("summary") or entry.get("description")
         summary = clean_html(raw_summary)
         category = _infer_category(title, summary, source.category)
-        enriched = _enrich_article_fields(title, summary, category)
+        enriched = _enrich_article_fields(title, summary, category, source)
 
         article = Article(
             source_id=source.id,
@@ -217,11 +224,13 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
             summary=summary,
             author=entry.get("author"),
             category=category,
-            region=enriched["region"] or source.region,
+            region=enriched["region"],
             published_at=_parse_date(entry.get("published") or entry.get("updated")),
             relevance_score=enriched["relevance_score"],
             severity=enriched["severity"],
             locations=enriched["locations"],
+            source_tier=enriched["source_tier"],
+            trust_score=enriched["trust_score"],
         )
         db.add(article)
         new_count += 1

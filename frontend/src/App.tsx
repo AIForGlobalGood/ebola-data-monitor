@@ -21,6 +21,7 @@ import {
 import { ArticleCard } from "./components/ArticleCard";
 import { BriefingPanel } from "./components/BriefingPanel";
 import { ControlTowerView } from "./components/ControlTowerView";
+import { TrustDisclaimer } from "./components/TrustDisclaimer";
 import { CATEGORIES, formatDate } from "./utils";
 
 type Tab = "overview" | "feed" | "sources" | "briefings";
@@ -195,6 +196,12 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6">
+        {tab !== "overview" && (
+          <div className="mb-4">
+            <TrustDisclaimer compact />
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
         )}

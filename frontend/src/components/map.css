@@ -1,0 +1,38 @@
+.crisis-map .leaflet-container {
+  background: #0a1628;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+.crisis-map .leaflet-control-attribution {
+  background: rgba(11, 18, 32, 0.85) !important;
+  color: #64748b !important;
+  font-size: 10px;
+}
+
+.crisis-map .leaflet-control-attribution a {
+  color: #94a3b8 !important;
+}
+
+.crisis-map .leaflet-bar {
+  border: 1px solid #2a3548 !important;
+  box-shadow: none !important;
+}
+
+.crisis-map .leaflet-bar a {
+  background: #111827 !important;
+  color: #e5e7eb !important;
+  border-bottom-color: #2a3548 !important;
+}
+
+.crisis-map .leaflet-bar a:hover {
+  background: #1a2332 !important;
+}
+
+.crisis-popup .leaflet-popup-content-wrapper {
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.crisis-popup .leaflet-popup-tip {
+  background: white;
+}
