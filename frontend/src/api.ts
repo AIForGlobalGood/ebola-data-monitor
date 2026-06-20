@@ -137,7 +137,8 @@ export interface ControlTowerData {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const base = import.meta.env.VITE_API_BASE ?? "";
+  const response = await fetch(`${base}${path}`, {
     headers: { "Content-Type": "application/json", ...init?.headers },
     ...init,
   });

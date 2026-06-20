@@ -2,12 +2,18 @@ import L from "leaflet";
 import { useEffect } from "react";
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from "react-leaflet";
 import { MapPoint } from "../api";
+import { usePrefersColorScheme } from "../hooks/usePrefersColorScheme";
 import { severityStyles } from "../utils";
 import { PanelHeader } from "./ui/Panel";
 import "./map.css";
 
 const AFRICA_EVD_CENTER: L.LatLngExpression = [-0.5, 28.5];
 const DEFAULT_ZOOM = 5;
+
+const MAP_TILES = {
+  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+} as const;
 
 function severityColor(severity: string): string {
   switch (severity) {
@@ -55,6 +61,7 @@ export function RegionMap({
   selectedLocation?: string | null;
   onSelectLocation?: (location: string) => void;
 }) {
+  const colorScheme = usePrefersColorScheme();
   const sorted = [...points].sort((a, b) => b.primary_count - a.primary_count);
 
   return (
@@ -67,8 +74,9 @@ export function RegionMap({
       <div className="crisis-map relative h-[460px] w-full">
         <MapContainer center={AFRICA_EVD_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom className="h-full w-full">
           <TileLayer
+            key={colorScheme}
             attribution='&copy; OSM &copy; CARTO'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            url={MAP_TILES[colorScheme]}
           />
           <FitBounds points={sorted} />
           {sorted.map((point) => {

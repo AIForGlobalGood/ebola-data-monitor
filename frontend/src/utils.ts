@@ -18,8 +18,8 @@ export function severityStyles(severity: string) {
       };
     case "high":
       return {
-        badge: "text-orange-300 bg-orange-500/12 border-orange-500/35",
-        dot: "bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.6)]",
+        badge: "text-hub-high bg-hub-high-soft border-hub-high/35",
+        dot: "bg-hub-high shadow-[0_0_8px_var(--hub-high-soft)]",
         label: "High",
       };
     case "medium":

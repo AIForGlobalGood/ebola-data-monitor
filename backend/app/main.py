@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -11,6 +13,8 @@ from app.db.database import SessionLocal, init_db
 from app.services.ingestion import seed_default_sources
 from app.services.scheduler import background_fetch_loop, startup_tasks
 
+logger = logging.getLogger(__name__)
+
 _stop_event: asyncio.Event | None = None
 _fetch_task: asyncio.Task | None = None
 
@@ -19,14 +23,22 @@ _fetch_task: asyncio.Task | None = None
 async def lifespan(_: FastAPI):
     global _stop_event, _fetch_task
 
-    Path("data").mkdir(exist_ok=True)
+    settings = get_settings()
+    data_dir = Path("/tmp/data") if settings.is_vercel else Path("data")
+    data_dir.mkdir(parents=True, exist_ok=True)
+
     await init_db()
     async with SessionLocal() as db:
         await seed_default_sources(db)
+
+    if settings.is_vercel:
+        logger.info("Vercel mode — running one-shot startup ingest (cron handles scheduled fetch)")
+
     await startup_tasks()
 
-    _stop_event = asyncio.Event()
-    _fetch_task = asyncio.create_task(background_fetch_loop(_stop_event))
+    if not settings.is_vercel:
+        _stop_event = asyncio.Event()
+        _fetch_task = asyncio.create_task(background_fetch_loop(_stop_event))
 
     yield
 

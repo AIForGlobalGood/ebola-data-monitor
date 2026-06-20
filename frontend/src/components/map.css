@@ -1,42 +1,42 @@
 .crisis-map .leaflet-container {
-  background: #0c1219;
+  background: rgb(var(--hub-surface));
   font-family: "Plus Jakarta Sans", system-ui, sans-serif;
 }
 
 .crisis-map .leaflet-control-attribution {
-  background: rgba(6, 10, 16, 0.9) !important;
-  color: #5c708a !important;
+  background: rgb(var(--hub-bg) / 0.92) !important;
+  color: rgb(var(--hub-subtle)) !important;
   font-family: "IBM Plex Mono", monospace;
   font-size: 9px;
 }
 
 .crisis-map .leaflet-control-attribution a {
-  color: #8fa3b8 !important;
+  color: rgb(var(--hub-muted)) !important;
 }
 
 .crisis-map .leaflet-bar {
-  border: 1px solid rgba(148, 163, 184, 0.15) !important;
+  border: 1px solid rgb(var(--hub-border) / 0.15) !important;
   border-radius: 12px !important;
   overflow: hidden;
   box-shadow: none !important;
 }
 
 .crisis-map .leaflet-bar a {
-  background: #111a24 !important;
-  color: #f0f4f8 !important;
-  border-bottom-color: rgba(148, 163, 184, 0.12) !important;
+  background: rgb(var(--hub-elevated)) !important;
+  color: rgb(var(--hub-text)) !important;
+  border-bottom-color: rgb(var(--hub-border) / 0.12) !important;
   width: 32px !important;
   height: 32px !important;
   line-height: 32px !important;
 }
 
 .crisis-map .leaflet-bar a:hover {
-  background: #141f2b !important;
+  background: rgb(var(--hub-card)) !important;
 }
 
 .crisis-popup .leaflet-popup-content-wrapper {
   border-radius: 12px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--map-popup-shadow);
 }
 
 .crisis-popup .leaflet-popup-tip {

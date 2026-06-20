@@ -1,0 +1,76 @@
+/* System-aware theme tokens — follows prefers-color-scheme */
+
+:root {
+  color-scheme: light dark;
+
+  /* Light (default / no preference) — space-separated RGB channels */
+  --hub-bg: 244 247 251;
+  --hub-surface: 255 255 255;
+  --hub-elevated: 255 255 255;
+  --hub-card: 238 242 247;
+  --hub-border: 15 23 42;
+  --hub-text: 15 23 42;
+  --hub-muted: 71 85 105;
+  --hub-subtle: 100 116 139;
+
+  --hub-crisis: 220 38 38;
+  --hub-verified: 5 150 105;
+  --hub-caution: 217 119 6;
+  --hub-info: 2 132 199;
+  --hub-high: 234 88 12;
+
+  --hub-crisis-soft: rgba(220, 38, 38, 0.08);
+  --hub-verified-soft: rgba(5, 150, 105, 0.08);
+  --hub-caution-soft: rgba(217, 119, 6, 0.1);
+  --hub-info-soft: rgba(2, 132, 199, 0.08);
+  --hub-high-soft: rgba(234, 88, 12, 0.1);
+
+  --body-gradient:
+    radial-gradient(ellipse 90% 60% at 50% -30%, rgba(220, 38, 38, 0.05), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(2, 132, 199, 0.04), transparent 50%),
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  --shadow-panel: 0 0 0 1px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.06);
+  --scrollbar-thumb: rgba(15, 23, 42, 0.14);
+  --selection-bg: rgba(2, 132, 199, 0.22);
+  --selection-color: #0f172a;
+  --live-dot-glow: rgba(5, 150, 105, 0.45);
+  --map-popup-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --hub-bg: 6 10 16;
+    --hub-surface: 12 18 25;
+    --hub-elevated: 17 26 36;
+    --hub-card: 20 31 43;
+    --hub-border: 148 163 184;
+    --hub-text: 240 244 248;
+    --hub-muted: 143 163 184;
+    --hub-subtle: 92 112 138;
+
+    --hub-crisis: 239 90 90;
+    --hub-verified: 62 207 142;
+    --hub-caution: 245 185 66;
+    --hub-info: 77 181 255;
+    --hub-high: 251 146 60;
+
+    --hub-crisis-soft: rgba(239, 90, 90, 0.12);
+    --hub-verified-soft: rgba(62, 207, 142, 0.12);
+    --hub-caution-soft: rgba(245, 185, 66, 0.12);
+    --hub-info-soft: rgba(77, 181, 255, 0.12);
+    --hub-high-soft: rgba(251, 146, 60, 0.12);
+
+    --body-gradient:
+      radial-gradient(ellipse 90% 60% at 50% -30%, rgba(239, 90, 90, 0.08), transparent 55%),
+      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(77, 181, 255, 0.05), transparent 50%),
+      linear-gradient(180deg, #060a10 0%, #080d14 100%);
+    --shadow-panel: 0 0 0 1px rgba(148, 163, 184, 0.08), 0 8px 32px rgba(0, 0, 0, 0.35);
+    --scrollbar-thumb: rgba(148, 163, 184, 0.22);
+    --selection-bg: rgba(77, 181, 255, 0.3);
+    --selection-color: #ffffff;
+    --live-dot-glow: rgba(62, 207, 142, 0.75);
+    --map-popup-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  }
+}
