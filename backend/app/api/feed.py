@@ -12,7 +12,9 @@ router = APIRouter()
 @router.get("", response_model=list[ArticleRead])
 async def recent_feed(
     limit: int = Query(default=50, ge=1, le=200),
+    category: str | None = None,
+    severity: str | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> list[ArticleRead]:
-    articles = await get_recent_articles(db, limit=limit)
+    articles = await get_recent_articles(db, limit=limit, category=category, severity=severity)
     return [article_to_read(article) for article in articles]

@@ -16,6 +16,7 @@ async def search(payload: SearchRequest, db: AsyncSession = Depends(get_db)) -> 
         payload.query,
         category=payload.category,
         region=payload.region,
+        severity=payload.severity,
         limit=payload.limit,
     )
     return [article_to_read(article) for article in articles]

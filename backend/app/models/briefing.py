@@ -16,5 +16,6 @@ class Briefing(Base):
     key_findings: Mapped[str | None] = mapped_column(Text)
     recommendations: Mapped[str | None] = mapped_column(Text)
     article_ids: Mapped[str | None] = mapped_column(String(1000))
+    citations_json: Mapped[str | None] = mapped_column(Text)
     provider: Mapped[str] = mapped_column(String(50), default="mock")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

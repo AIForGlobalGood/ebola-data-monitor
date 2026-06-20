@@ -5,7 +5,7 @@ from app.db.database import get_db
 from app.models import Source
 from app.schemas import FetchResult, SourceCreate, SourceRead
 from app.services.dashboard import get_source, list_sources
-from app.services.ingestion import fetch_all_sources, fetch_source, seed_default_sources
+from app.services.ingestion import fetch_all_sources, fetch_source, reprocess_articles, seed_default_sources
 
 router = APIRouter()
 
@@ -30,6 +30,12 @@ async def create_source(payload: SourceCreate, db: AsyncSession = Depends(get_db
 async def seed_sources(db: AsyncSession = Depends(get_db)) -> dict:
     created = await seed_default_sources(db)
     return {"created": created, "message": f"Seeded {created} default public-health feeds"}
+
+
+@router.post("/reprocess", response_model=dict)
+async def reprocess(db: AsyncSession = Depends(get_db)) -> dict:
+    updated = await reprocess_articles(db)
+    return {"updated": updated, "message": f"Reprocessed {updated} articles"}
 
 
 @router.post("/fetch-all", response_model=list[FetchResult])

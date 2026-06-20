@@ -10,108 +10,20 @@ import {
   Sparkles,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { api, Article, Briefing, DashboardStats, FetchResult, Source } from "./api";
+import {
+  api,
+  Article,
+  Briefing,
+  ControlTowerData,
+  FetchResult,
+  Source,
+} from "./api";
+import { ArticleCard } from "./components/ArticleCard";
+import { BriefingPanel } from "./components/BriefingPanel";
+import { ControlTowerView } from "./components/ControlTowerView";
+import { CATEGORIES, formatDate } from "./utils";
 
 type Tab = "overview" | "feed" | "sources" | "briefings";
-
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  return new Date(value).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function relevanceColor(score: number) {
-  if (score >= 0.7) return "text-red-400 bg-red-500/10 border-red-500/30";
-  if (score >= 0.4) return "text-amber-400 bg-amber-500/10 border-amber-500/30";
-  return "text-slate-400 bg-slate-500/10 border-slate-500/30";
-}
-
-function StatCard({
-  label,
-  value,
-  hint,
-  icon: Icon,
-  accent = "text-hub-teal",
-}: {
-  label: string;
-  value: number | string;
-  hint?: string;
-  icon: typeof Activity;
-  accent?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-hub-border bg-hub-card/80 p-4 backdrop-blur">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm text-hub-muted">{label}</span>
-        <Icon className={`h-4 w-4 ${accent}`} />
-      </div>
-      <div className="text-2xl font-semibold tracking-tight">{value}</div>
-      {hint && <p className="mt-1 text-xs text-hub-muted">{hint}</p>}
-    </div>
-  );
-}
-
-function ArticleCard({ article }: { article: Article }) {
-  return (
-    <article className="rounded-xl border border-hub-border bg-hub-panel/70 p-4 transition hover:border-hub-teal/40">
-      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-        <a
-          href={article.url}
-          target="_blank"
-          rel="noreferrer"
-          className="font-medium leading-snug text-white hover:text-hub-teal"
-        >
-          {article.title}
-        </a>
-        <span
-          className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${relevanceColor(article.relevance_score)}`}
-        >
-          {(article.relevance_score * 100).toFixed(0)}% match
-        </span>
-      </div>
-      {article.summary && (
-        <p className="mb-3 line-clamp-3 text-sm leading-relaxed text-hub-muted">{article.summary.replace(/<[^>]+>/g, "")}</p>
-      )}
-      <div className="flex flex-wrap gap-2 text-xs text-hub-muted">
-        <span className="rounded bg-hub-bg px-2 py-1">{article.source_name ?? "Unknown source"}</span>
-        <span className="rounded bg-hub-bg px-2 py-1 capitalize">{article.category}</span>
-        {article.region && <span className="rounded bg-hub-bg px-2 py-1">{article.region}</span>}
-        <span>{formatDate(article.published_at)}</span>
-      </div>
-    </article>
-  );
-}
-
-function BriefingPanel({ briefing }: { briefing: Briefing }) {
-  return (
-    <div className="space-y-4 rounded-xl border border-hub-border bg-hub-panel/70 p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold">{briefing.title}</h3>
-        <span className="rounded-full border border-hub-border px-2 py-1 text-xs uppercase tracking-wide text-hub-muted">
-          {briefing.provider}
-        </span>
-      </div>
-      <p className="text-sm leading-relaxed text-hub-text">{briefing.summary}</p>
-      {briefing.key_findings && (
-        <div>
-          <h4 className="mb-2 text-sm font-semibold text-hub-teal">Key findings</h4>
-          <pre className="whitespace-pre-wrap font-sans text-sm text-hub-muted">{briefing.key_findings}</pre>
-        </div>
-      )}
-      {briefing.recommendations && (
-        <div>
-          <h4 className="mb-2 text-sm font-semibold text-hub-amber">Recommendations</h4>
-          <pre className="whitespace-pre-wrap font-sans text-sm text-hub-muted">{briefing.recommendations}</pre>
-        </div>
-      )}
-      <p className="text-xs text-hub-muted">Generated {formatDate(briefing.created_at)}</p>
-    </div>
-  );
-}
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("overview");
@@ -119,7 +31,7 @@ export default function App() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [tower, setTower] = useState<ControlTowerData | null>(null);
   const [articles, setArticles] = useState<Article[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
   const [briefings, setBriefings] = useState<Briefing[]>([]);
@@ -127,18 +39,20 @@ export default function App() {
 
   const [searchQuery, setSearchQuery] = useState("ebola outbreak vaccine surveillance");
   const [briefingQuery, setBriefingQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [feedCategory, setFeedCategory] = useState("all");
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [dashboard, feed, sourceList, briefingList] = await Promise.all([
-        api.dashboard(),
-        api.feed(),
+      const [towerData, feed, sourceList, briefingList] = await Promise.all([
+        api.tower(),
+        api.feed(50),
         api.sources(),
         api.briefings(),
       ]);
-      setStats(dashboard);
+      setTower(towerData);
       setArticles(feed);
       setSources(sourceList);
       setBriefings(briefingList);
@@ -151,6 +65,8 @@ export default function App() {
 
   useEffect(() => {
     void refresh();
+    const interval = setInterval(() => void refresh(), 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [refresh]);
 
   async function handleFetchAll() {
@@ -160,7 +76,6 @@ export default function App() {
       const results = await api.fetchAll();
       setFetchResults(results);
       await refresh();
-      setTab("sources");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fetch failed");
     } finally {
@@ -173,11 +88,27 @@ export default function App() {
     setBusy("search");
     setError(null);
     try {
-      const results = await api.search(searchQuery);
+      const results = await api.search(
+        searchQuery,
+        feedCategory === "all" ? undefined : feedCategory,
+      );
       setArticles(results);
       setTab("feed");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleFeedCategoryChange(category: string) {
+    setFeedCategory(category);
+    setBusy("feed");
+    try {
+      const results = await api.feed(50, category === "all" ? undefined : category);
+      setArticles(results);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to filter feed");
     } finally {
       setBusy(null);
     }
@@ -215,9 +146,20 @@ export default function App() {
               Emergency Response
             </div>
             <h1 className="text-xl font-bold tracking-tight md:text-2xl">Ebola Crisis Hub</h1>
-            <p className="text-sm text-hub-muted">Control Tower — monitor, retrieve, organize & synthesize public information</p>
+            <p className="text-sm text-hub-muted">Control Tower — live map, alerts, timeline & source-cited briefings</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <form onSubmit={handleSearch} className="hidden items-center gap-2 md:flex">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-hub-muted" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-64 rounded-lg border border-hub-border bg-hub-panel py-2 pl-10 pr-3 text-sm outline-none focus:border-hub-teal"
+                  placeholder="Search public information…"
+                />
+              </div>
+            </form>
             <button
               onClick={() => void refresh()}
               disabled={loading || !!busy}
@@ -232,7 +174,7 @@ export default function App() {
               className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
             >
               {busy === "fetch" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
-              Fetch All Sources
+              Fetch All
             </button>
           </div>
         </div>
@@ -242,9 +184,7 @@ export default function App() {
               key={id}
               onClick={() => setTab(id)}
               className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm whitespace-nowrap transition ${
-                tab === id
-                  ? "bg-hub-teal/15 text-hub-teal"
-                  : "text-hub-muted hover:bg-hub-panel hover:text-white"
+                tab === id ? "bg-hub-teal/15 text-hub-teal" : "text-hub-muted hover:bg-hub-panel hover:text-white"
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -256,86 +196,28 @@ export default function App() {
 
       <main className="mx-auto max-w-7xl px-4 py-6">
         {error && (
-          <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {error}
-          </div>
+          <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
         )}
 
-        {tab === "overview" && stats && (
-          <div className="space-y-6">
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard label="Active sources" value={stats.active_sources} hint={`${stats.total_sources} total configured`} icon={Globe2} />
-              <StatCard label="Articles indexed" value={stats.total_articles} hint={`${stats.articles_24h} in last 24h`} icon={Radio} accent="text-red-400" />
-              <StatCard label="Briefings generated" value={stats.total_briefings} hint="AI situational summaries" icon={Sparkles} accent="text-amber-400" />
-              <StatCard label="Categories tracked" value={Object.keys(stats.categories).length} hint="Outbreak, vaccine, treatment…" icon={Activity} />
-            </section>
-
-            <section className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-xl border border-hub-border bg-hub-panel/60 p-5">
-                <h2 className="mb-4 font-semibold">Category breakdown</h2>
-                <div className="space-y-2">
-                  {Object.entries(stats.categories).map(([category, count]) => (
-                    <div key={category} className="flex items-center justify-between text-sm">
-                      <span className="capitalize text-hub-muted">{category}</span>
-                      <span className="font-mono">{count}</span>
-                    </div>
-                  ))}
-                  {Object.keys(stats.categories).length === 0 && (
-                    <p className="text-sm text-hub-muted">No articles yet — run Fetch All Sources to ingest public feeds.</p>
-                  )}
-                </div>
-              </div>
-              <div className="rounded-xl border border-hub-border bg-hub-panel/60 p-5">
-                <h2 className="mb-4 font-semibold">Search & synthesize</h2>
-                <form onSubmit={handleSearch} className="space-y-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-hub-muted" />
-                    <input
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full rounded-lg border border-hub-border bg-hub-bg py-2.5 pl-10 pr-3 text-sm outline-none focus:border-hub-teal"
-                      placeholder="Search public information…"
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button type="submit" disabled={!!busy} className="rounded-lg bg-hub-teal/20 px-3 py-2 text-sm text-hub-teal hover:bg-hub-teal/30 disabled:opacity-50">
-                      Search feed
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleGenerateBriefing()}
-                      disabled={!!busy}
-                      className="rounded-lg bg-amber-500/20 px-3 py-2 text-sm text-amber-300 hover:bg-amber-500/30 disabled:opacity-50"
-                    >
-                      Generate briefing
-                    </button>
-                  </div>
-                </form>
-                {stats.latest_briefing && (
-                  <div className="mt-5 border-t border-hub-border pt-5">
-                    <h3 className="mb-2 text-sm font-semibold text-hub-muted">Latest briefing</h3>
-                    <BriefingPanel briefing={stats.latest_briefing} />
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section>
-              <h2 className="mb-4 font-semibold">High-priority signals</h2>
-              <div className="grid gap-3">
-                {articles.slice(0, 5).map((article) => (
-                  <ArticleCard key={article.id} article={article} />
-                ))}
-                {articles.length === 0 && !loading && (
-                  <p className="text-sm text-hub-muted">No signals yet. Fetch sources to populate the control tower.</p>
-                )}
-              </div>
-            </section>
-          </div>
+        {tab === "overview" && tower && (
+          <ControlTowerView data={tower} category={categoryFilter} onCategoryChange={setCategoryFilter} />
         )}
 
         {tab === "feed" && (
           <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => void handleFeedCategoryChange(cat)}
+                  className={`rounded-full border px-3 py-1 text-xs capitalize ${
+                    feedCategory === cat ? "border-hub-teal bg-hub-teal/15 text-hub-teal" : "border-hub-border text-hub-muted"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
             <form onSubmit={handleSearch} className="flex flex-wrap gap-2">
               <input
                 value={searchQuery}
@@ -356,6 +238,7 @@ export default function App() {
 
         {tab === "sources" && (
           <div className="space-y-4">
+            <p className="text-sm text-hub-muted">Sources auto-refresh every 30 minutes. Last manual fetch results below.</p>
             {fetchResults && (
               <div className="rounded-xl border border-hub-border bg-hub-panel/60 p-4 text-sm">
                 <h3 className="mb-2 font-semibold">Last fetch run</h3>
@@ -400,15 +283,15 @@ export default function App() {
         {tab === "briefings" && (
           <div className="space-y-4">
             <div className="rounded-xl border border-hub-border bg-hub-panel/60 p-4">
-              <h3 className="mb-2 font-semibold">Generate situational briefing</h3>
+              <h3 className="mb-2 font-semibold">Generate source-cited briefing</h3>
               <p className="mb-3 text-sm text-hub-muted">
-                Synthesizes retrieved public articles into an executive summary. Configure OpenAI or Anthropic keys for live LLM output.
+                Each finding links back to the articles it was derived from. Configure OpenAI or Anthropic for live LLM synthesis.
               </p>
               <div className="flex flex-wrap gap-2">
                 <input
                   value={briefingQuery}
                   onChange={(e) => setBriefingQuery(e.target.value)}
-                  placeholder="Optional focus query (defaults to Ebola outbreak context)"
+                  placeholder="Optional focus query"
                   className="min-w-[280px] flex-1 rounded-lg border border-hub-border bg-hub-bg px-3 py-2 text-sm outline-none focus:border-hub-teal"
                 />
                 <button

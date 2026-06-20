@@ -41,6 +41,8 @@ class ArticleRead(BaseModel):
     published_at: datetime | None = None
     fetched_at: datetime
     relevance_score: float
+    severity: str = "low"
+    locations: list[str] = Field(default_factory=list)
     source_name: str | None = None
 
 
@@ -48,7 +50,14 @@ class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=500)
     category: str | None = None
     region: str | None = None
+    severity: str | None = None
     limit: int = Field(default=25, ge=1, le=100)
+
+
+class CitedFinding(BaseModel):
+    text: str
+    article_ids: list[int] = Field(default_factory=list)
+    confidence: str = "likely"
 
 
 class BriefingRequest(BaseModel):
@@ -67,6 +76,8 @@ class BriefingRead(BaseModel):
     summary: str
     key_findings: str | None = None
     recommendations: str | None = None
+    findings: list[CitedFinding] = Field(default_factory=list)
+    source_articles: list[ArticleRead] = Field(default_factory=list)
     article_ids: str | None = None
     provider: str
     created_at: datetime
@@ -80,6 +91,7 @@ class DashboardStats(BaseModel):
     total_briefings: int
     categories: dict[str, int]
     regions: dict[str, int]
+    severity_24h: dict[str, int] = Field(default_factory=dict)
     latest_briefing: BriefingRead | None = None
 
 
@@ -90,3 +102,29 @@ class FetchResult(BaseModel):
     total_fetched: int
     status: str
     message: str | None = None
+
+
+class TowerAlert(BaseModel):
+    article: ArticleRead
+    severity: str
+
+
+class TimelineBucket(BaseModel):
+    date: str
+    count: int
+    articles: list[ArticleRead]
+
+
+class MapPoint(BaseModel):
+    location: str
+    lat: float
+    lng: float
+    count: int
+    severity: str
+
+
+class ControlTowerData(BaseModel):
+    stats: DashboardStats
+    alerts: list[TowerAlert]
+    timeline: list[TimelineBucket]
+    map_points: list[MapPoint]

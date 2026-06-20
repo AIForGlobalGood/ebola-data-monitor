@@ -23,5 +23,7 @@ class Article(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     relevance_score: Mapped[float] = mapped_column(Float, default=0.0)
+    severity: Mapped[str] = mapped_column(String(20), default="low")
+    locations: Mapped[str | None] = mapped_column(Text)
 
     source = relationship("Source", back_populates="articles")

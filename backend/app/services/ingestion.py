@@ -11,11 +11,17 @@ from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
 from app.models import Article, Source
+from app.services.entities import (
+    compute_severity,
+    extract_locations,
+    locations_to_json,
+)
+from app.services.text_utils import clean_html, normalize_title, normalize_url, titles_are_duplicate
 
 EBOLA_KEYWORDS = re.compile(
     r"\b(ebola|hemorrhagic|outbreak|epidemic|vaccine|vaccination|"
     r"immunization|biotech|virus|viral|surveillance|contact.?tracing|"
-    r"therapeutic|treatment|clinical.?trial|who|cdc|health.?emergency)\b",
+    r"therapeutic|treatment|clinical.?trial|who|cdc|health.?emergency|filovirus|marburg)\b",
     re.IGNORECASE,
 )
 
@@ -35,11 +41,18 @@ DEFAULT_SOURCES = [
         "description": "ReliefWeb humanitarian situation reports",
     },
     {
-        "name": "Google News — Ebola",
-        "url": "https://news.google.com/rss/search?q=ebola+outbreak+vaccine&hl=en-US&gl=US&ceid=US:en",
+        "name": "Google News — Ebola Outbreak",
+        "url": "https://news.google.com/rss/search?q=ebola+outbreak+confirmed+cases&hl=en-US&gl=US&ceid=US:en",
         "category": "outbreak",
         "region": "global",
-        "description": "Aggregated public news on Ebola outbreaks and vaccines",
+        "description": "Aggregated public news on Ebola outbreaks",
+    },
+    {
+        "name": "Google News — Ebola Vaccine",
+        "url": "https://news.google.com/rss/search?q=ebola+vaccine+immunization&hl=en-US&gl=US&ceid=US:en",
+        "category": "vaccine",
+        "region": "global",
+        "description": "Public news on Ebola vaccines and immunization",
     },
     {
         "name": "Google News — Hemorrhagic Fever",
@@ -47,6 +60,13 @@ DEFAULT_SOURCES = [
         "category": "surveillance",
         "region": "global",
         "description": "Public news on viral hemorrhagic fever surveillance",
+    },
+    {
+        "name": "Google News — DRC Health",
+        "url": "https://news.google.com/rss/search?q=DRC+Congo+ebola+health&hl=en-US&gl=US&ceid=US:en",
+        "category": "outbreak",
+        "region": "africa",
+        "description": "DRC and Central Africa Ebola-related coverage",
     },
     {
         "name": "CDC Health Alert Network",
@@ -83,13 +103,47 @@ def _infer_category(title: str, summary: str | None, default: str) -> str:
     text = f"{title} {summary or ''}".lower()
     if any(k in text for k in ("vaccine", "vaccination", "immunization", "gavi")):
         return "vaccine"
-    if any(k in text for k in ("outbreak", "case", "epidemic", "surveillance")):
+    if any(k in text for k in ("outbreak", "case", "epidemic", "surveillance", "cluster")):
         return "outbreak"
-    if any(k in text for k in ("trial", "treatment", "therapeutic", "drug")):
+    if any(k in text for k in ("trial", "treatment", "therapeutic", "drug", "guideline")):
         return "treatment"
     if any(k in text for k in ("humanitarian", "relief", "response")):
         return "humanitarian"
+    if any(k in text for k in ("alert", "emergency", "han")):
+        return "alert"
     return default
+
+
+def _enrich_article_fields(title: str, summary: str | None, category: str) -> dict:
+    relevance = _score_relevance(title, summary)
+    severity = compute_severity(title, summary, category, relevance)
+    locations = extract_locations(title, summary)
+    region = locations[0] if locations else None
+    return {
+        "relevance_score": relevance,
+        "severity": severity,
+        "locations": locations_to_json(locations),
+        "region": region,
+    }
+
+
+async def _is_duplicate(db: AsyncSession, url: str, title: str) -> bool:
+    normalized = normalize_url(url)
+    existing_url = await db.scalar(
+        select(Article.id).where(or_(Article.url == url, Article.url == normalized))
+    )
+    if existing_url:
+        return True
+
+    norm_title = normalize_title(title)
+    if len(norm_title) < 20:
+        return False
+
+    recent_titles = await db.scalars(select(Article.title).order_by(Article.fetched_at.desc()).limit(300))
+    for existing in recent_titles.all():
+        if titles_are_duplicate(title, existing):
+            return True
+    return False
 
 
 async def seed_default_sources(db: AsyncSession) -> int:
@@ -103,6 +157,27 @@ async def seed_default_sources(db: AsyncSession) -> int:
     if created:
         await db.commit()
     return created
+
+
+async def reprocess_articles(db: AsyncSession) -> int:
+    """Re-clean HTML and recompute metadata for existing articles."""
+    articles = (await db.scalars(select(Article))).all()
+    updated = 0
+    for article in articles:
+        cleaned = clean_html(article.summary)
+        category = _infer_category(article.title, cleaned, article.category)
+        enriched = _enrich_article_fields(article.title, cleaned, category)
+        article.summary = cleaned
+        article.category = category
+        article.relevance_score = enriched["relevance_score"]
+        article.severity = enriched["severity"]
+        article.locations = enriched["locations"]
+        if enriched["region"]:
+            article.region = enriched["region"]
+        updated += 1
+    if updated:
+        await db.commit()
+    return updated
 
 
 async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
@@ -120,29 +195,33 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
 
     for entry in feed.entries[: settings.max_articles_per_source]:
         fetched += 1
-        url = entry.get("link") or entry.get("id")
-        if not url:
+        raw_url = entry.get("link") or entry.get("id")
+        if not raw_url:
             continue
 
-        existing = await db.scalar(select(Article.id).where(Article.url == url))
-        if existing:
+        url = normalize_url(raw_url)
+        title = clean_html(entry.get("title", "Untitled"), max_length=500) or "Untitled"
+
+        if await _is_duplicate(db, url, title):
             continue
 
-        summary = entry.get("summary") or entry.get("description")
-        if summary and len(summary) > 2000:
-            summary = summary[:2000] + "…"
+        raw_summary = entry.get("summary") or entry.get("description")
+        summary = clean_html(raw_summary)
+        category = _infer_category(title, summary, source.category)
+        enriched = _enrich_article_fields(title, summary, category)
 
-        title = entry.get("title", "Untitled")
         article = Article(
             source_id=source.id,
             title=title,
             url=url,
             summary=summary,
             author=entry.get("author"),
-            category=_infer_category(title, summary, source.category),
-            region=source.region,
+            category=category,
+            region=enriched["region"] or source.region,
             published_at=_parse_date(entry.get("published") or entry.get("updated")),
-            relevance_score=_score_relevance(title, summary),
+            relevance_score=enriched["relevance_score"],
+            severity=enriched["severity"],
+            locations=enriched["locations"],
         )
         db.add(article)
         new_count += 1
@@ -161,7 +240,7 @@ async def fetch_all_sources(db: AsyncSession) -> list[tuple[Source, int, int, st
         try:
             new_count, fetched = await fetch_source(db, source)
             outcomes.append((source, new_count, fetched, None))
-        except Exception as exc:  # noqa: BLE001 — per-source failure should not stop batch
+        except Exception as exc:  # noqa: BLE001
             outcomes.append((source, 0, 0, str(exc)))
 
     return outcomes
@@ -173,6 +252,7 @@ async def search_articles(
     *,
     category: str | None = None,
     region: str | None = None,
+    severity: str | None = None,
     limit: int = 25,
 ) -> list[Article]:
     terms = [term.strip() for term in query.split() if term.strip()]
@@ -185,7 +265,9 @@ async def search_articles(
     if category:
         stmt = stmt.where(Article.category == category)
     if region:
-        stmt = stmt.where(Article.region == region)
+        stmt = stmt.where(or_(Article.region == region, Article.locations.ilike(f"%{region}%")))
+    if severity:
+        stmt = stmt.where(Article.severity == severity)
 
     if terms:
         filters = []
@@ -196,6 +278,7 @@ async def search_articles(
                     Article.title.ilike(pattern),
                     Article.summary.ilike(pattern),
                     Article.tags.ilike(pattern),
+                    Article.locations.ilike(pattern),
                 )
             )
         stmt = stmt.where(*filters)
@@ -205,11 +288,33 @@ async def search_articles(
     return list(result.all())
 
 
-async def get_recent_articles(db: AsyncSession, limit: int = 50) -> list[Article]:
+async def get_recent_articles(
+    db: AsyncSession,
+    limit: int = 50,
+    *,
+    category: str | None = None,
+    severity: str | None = None,
+) -> list[Article]:
     stmt = (
         select(Article)
         .options(selectinload(Article.source))
         .order_by(Article.relevance_score.desc(), Article.published_at.desc().nullslast())
+    )
+    if category:
+        stmt = stmt.where(Article.category == category)
+    if severity:
+        stmt = stmt.where(Article.severity == severity)
+    stmt = stmt.limit(limit)
+    result = await db.scalars(stmt)
+    return list(result.all())
+
+
+async def get_alerts(db: AsyncSession, limit: int = 20) -> list[Article]:
+    stmt = (
+        select(Article)
+        .options(selectinload(Article.source))
+        .where(Article.severity.in_(["critical", "high"]))
+        .order_by(Article.published_at.desc().nullslast(), Article.relevance_score.desc())
         .limit(limit)
     )
     result = await db.scalars(stmt)
