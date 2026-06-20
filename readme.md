@@ -86,6 +86,52 @@ cp .env.example .env
 docker compose up --build
 ```
 
+## Deploy to Vercel
+
+The repo is configured for a **full-stack Vercel deploy**: Vite UI from `frontend/dist`, FastAPI API at `/api/*`.
+
+### 1. Connect the repo
+
+1. Push to GitHub (e.g. `mineglobalsim/ebola`)
+2. [Import the project](https://vercel.com/new) — root directory stays **`/`** (repo root)
+3. Vercel reads `vercel.json` automatically (build, output, API rewrites)
+
+### 2. Environment variables
+
+Set these in **Project → Settings → Environment Variables**:
+
+| Variable | Required | Notes |
+|----------|----------|--------|
+| `CRON_SECRET` | Recommended | Random string; Vercel Cron sends `Authorization: Bearer <secret>` to `/api/cron/ingest` every 6h |
+| `LLM_PROVIDER` | Optional | `mock` (default), `openai`, or `anthropic` |
+| `OPENAI_API_KEY` | Optional | For live briefings |
+| `ANTHROPIC_API_KEY` | Optional | For live briefings |
+
+CORS is auto-configured from `VERCEL_URL` — no manual origin setup needed for same-project deploys.
+
+### 3. Deploy
+
+```bash
+npm i -g vercel   # once
+vercel login
+vercel --prod
+```
+
+Or push to `main` if Git integration is connected.
+
+### Limitations on Vercel
+
+- **SQLite is ephemeral** — data lives in `/tmp` on serverless functions and can reset on cold starts. Fine for demos; for persistent production data use [Turso](https://turso.tech), Neon, or run the backend on Railway/Render with a volume.
+- **Background fetch** is replaced by Vercel Cron (`/api/cron/ingest` every 6 hours). Use **Fetch All Sources** in the UI for on-demand ingest.
+- **Cron jobs** require a Vercel [Pro plan](https://vercel.com/docs/cron-jobs) on some accounts; Hobby may have limits.
+
+### Frontend-only on Vercel (backend elsewhere)
+
+If the API runs on Railway, Render, Fly, etc.:
+
+1. Set **Root Directory** to `frontend` in Vercel, or keep monorepo and set `VITE_API_BASE=https://your-api.example.com` at build time.
+2. Set `CORS_ORIGINS` on the backend to include your Vercel URL.
+
 ## Roadmap
 
 - [ ] Scheduled background fetch (APScheduler / Celery)
