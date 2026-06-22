@@ -6,6 +6,21 @@ export interface CitedFinding {
   confidence: "confirmed" | "likely" | "unverified" | string;
 }
 
+export interface RelevanceSignal {
+  pillar: string;
+  label: string;
+  weight: number;
+}
+
+export interface RelevanceTrace {
+  goal: string;
+  score: number;
+  verdict: string;
+  source_context: string;
+  signals: RelevanceSignal[];
+  negatives: string[];
+}
+
 export interface DashboardStats {
   total_sources: number;
   active_sources: number;
@@ -34,6 +49,25 @@ export interface Source {
   article_count: number;
 }
 
+export interface OfficialMetric {
+  country: string;
+  confirmed_cases: number | null;
+  deaths: number | null;
+  probable_deaths: number | null;
+  recoveries: number | null;
+  admissions: number | null;
+  imported_cases: number | null;
+  local_cases: number | null;
+  contacts_active: number | null;
+  source_name: string;
+  source_url: string;
+  source_type: string;
+  as_of: string | null;
+  fetched_at: string | null;
+  notes: string | null;
+  status: string;
+}
+
 export interface Article {
   id: number;
   source_id: number;
@@ -52,6 +86,7 @@ export interface Article {
   source_tier: string;
   trust_score: number;
   source_name: string | null;
+  relevance_trace: RelevanceTrace | null;
 }
 
 export interface Briefing {
@@ -169,6 +204,7 @@ export const api = {
     return request<RegionDetail>(`/api/tower/region?${params}`);
   },
   dashboard: () => request<DashboardStats>("/api/dashboard"),
+  officialSituation: () => request<OfficialMetric[]>("/api/official/situation"),
   sources: () => request<Source[]>("/api/sources"),
   fetchAll: () => request<FetchResult[]>("/api/sources/fetch-all", { method: "POST" }),
   feed: (

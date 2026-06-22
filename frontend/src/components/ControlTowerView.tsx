@@ -6,10 +6,12 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { ControlTowerData } from "../api";
+import type { OfficialMetric } from "../api";
 import type { DateFilterParams } from "../dateFilters";
 import { CATEGORIES, categoryLabel, severityStyles, tierStyles } from "../utils";
 import { AlertPanel } from "./BriefingPanel";
 import { HeadlineStrip } from "./HeadlineStrip";
+import { OfficialSituationPanel } from "./OfficialSituationPanel";
 import { RegionDrilldown } from "./RegionDrilldown";
 import { RegionMap } from "./RegionMap";
 import { Timeline } from "./Timeline";
@@ -20,11 +22,13 @@ import { Panel, PanelHeader, ScrollSection, SectionHeader, StatCard } from "./ui
 
 export function ControlTowerView({
   data,
+  officialMetrics,
   category,
   onCategoryChange,
   dateParams,
 }: {
   data: ControlTowerData;
+  officialMetrics: OfficialMetric[];
   category: string;
   onCategoryChange: (category: string) => void;
   dateParams?: DateFilterParams;
@@ -49,10 +53,10 @@ export function ControlTowerView({
   const filteredMedia = filterAlerts(media_signals);
 
   const trustSeveritySidebar = (
-    <div className="flex flex-col gap-4" style={{ height: SECTION_HEIGHT.sidebar }}>
+    <div className="flex flex-col justify-between gap-4" style={{ minHeight: SECTION_HEIGHT.sidebar }}>
       <Panel noPadding>
         <PanelHeader eyebrow="Trust layer" title="Source tiers · 24h" />
-        <div className="space-y-3 px-5 pb-5">
+        <div className="space-y-3 px-5 py-3">
           {["primary", "official", "aggregator"].map((tier) => {
             const style = tierStyles(tier);
             const count = stats.trust_by_tier?.[tier] ?? 0;
@@ -80,7 +84,7 @@ export function ControlTowerView({
 
       <Panel noPadding>
         <PanelHeader eyebrow="Classification" title="Severity · 24h" description="Tier-adjusted automated scoring" />
-        <div className="space-y-2 px-5 pb-5">
+        <div className="space-y-3 px-5 py-3">
           {["critical", "high", "medium", "low"].map((level) => {
             const sev = severityStyles(level);
             return (
@@ -103,6 +107,8 @@ export function ControlTowerView({
       <TrustDisclaimer text={disclaimer} />
 
       <HeadlineStrip headline={headline} dateFilterActive={date_filter?.active} />
+
+      <OfficialSituationPanel metrics={officialMetrics} />
 
       <section className="grid gap-4 xl:grid-cols-5 xl:items-start">
         <div className="xl:col-span-3">

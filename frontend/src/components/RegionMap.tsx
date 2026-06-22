@@ -71,7 +71,7 @@ export function RegionMap({
         title="Outbreak corridor map"
         description="DRC · Uganda · Ituri health zones — click to drill down"
       />
-      <div className="crisis-map relative h-[460px] w-full">
+      <div className="crisis-map relative h-[480px] w-full">
         <MapContainer center={AFRICA_EVD_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom className="h-full w-full">
           <TileLayer
             key={colorScheme}

@@ -6,6 +6,7 @@ import {
   Briefing,
   ControlTowerData,
   FetchResult,
+  OfficialMetric,
   Source,
 } from "./api";
 import { ArticleCard } from "./components/ArticleCard";
@@ -29,11 +30,10 @@ export default function App() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
   const [briefings, setBriefings] = useState<Briefing[]>([]);
+  const [officialMetrics, setOfficialMetrics] = useState<OfficialMetric[]>([]);
   const [fetchResults, setFetchResults] = useState<FetchResult[] | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState(
-    "ebola outbreak Ituri DRC Uganda Bundibugyo confirmed cases contact tracing",
-  );
+  const [searchQuery, setSearchQuery] = useState("");
   const [briefingQuery, setBriefingQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [feedCategory, setFeedCategory] = useState("all");
@@ -45,16 +45,18 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [towerData, feed, sourceList, briefingList] = await Promise.all([
+      const [towerData, feed, sourceList, briefingList, officialSituation] = await Promise.all([
         api.tower(dateParams),
         api.feed(50, undefined, undefined, dateParams),
         api.sources(),
         api.briefings(),
+        api.officialSituation(),
       ]);
       setTower(towerData);
       setArticles(feed);
       setSources(sourceList);
       setBriefings(briefingList);
+      setOfficialMetrics(officialSituation);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
@@ -124,7 +126,11 @@ export default function App() {
     setBusy("briefing");
     setError(null);
     try {
-      const briefing = await api.generateBriefing(briefingQuery || searchQuery, "situational awareness", dateParams);
+      const briefing = await api.generateBriefing(
+        briefingQuery || searchQuery || "ebola outbreak Ituri DRC Uganda Bundibugyo confirmed cases contact tracing",
+        "situational awareness",
+        dateParams,
+      );
       setBriefings((prev) => [briefing, ...prev]);
       setTab("briefings");
       await refresh();
@@ -160,6 +166,7 @@ export default function App() {
       {tab === "overview" && tower && (
         <ControlTowerView
           data={tower}
+          officialMetrics={officialMetrics}
           category={categoryFilter}
           onCategoryChange={setCategoryFilter}
           dateParams={dateParams}
@@ -195,7 +202,7 @@ export default function App() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="input-field min-w-[240px] flex-1"
-                    placeholder="Search across indexed signals…"
+                    placeholder="Search: ebola outbreak Ituri DRC Uganda Bundibugyo contact tracing"
                   />
                   <button type="submit" className="btn-secondary">
                     Search

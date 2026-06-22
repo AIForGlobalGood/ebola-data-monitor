@@ -1,9 +1,19 @@
 import { Article } from "../api";
 import { formatDate, categoryLabel, severityStyles, tierStyles } from "../utils";
 
+function traceChips(article: Article): string[] {
+  const trace = article.relevance_trace;
+  if (!trace?.signals?.length) return [];
+  return [...trace.signals]
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 2)
+    .map((s) => s.label);
+}
+
 export function ArticleCard({ article, compact = false }: { article: Article; compact?: boolean }) {
   const sev = severityStyles(article.severity);
   const tier = tierStyles(article.source_tier ?? "aggregator");
+  const chips = traceChips(article);
 
   return (
     <article className="panel group p-4 transition hover:border-hub-border-strong">
@@ -23,6 +33,19 @@ export function ArticleCard({ article, compact = false }: { article: Article; co
       </div>
       {!compact && article.summary && (
         <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-hub-muted">{article.summary}</p>
+      )}
+      {chips.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {chips.map((label) => (
+            <span
+              key={label}
+              className="rounded-md border border-hub-info/25 bg-hub-info-soft px-2 py-0.5 text-2xs text-hub-info"
+              title="Why this article was indexed"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
       )}
       <div className="flex flex-wrap items-center gap-2 font-mono text-2xs text-hub-subtle">
         <span className="rounded-md bg-hub-surface px-2 py-1">{article.source_name ?? "Unknown"}</span>
