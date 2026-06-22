@@ -26,6 +26,40 @@ class SourceRead(SourceBase):
     article_count: int = 0
 
 
+class RelevanceSignal(BaseModel):
+    pillar: str
+    label: str
+    weight: float
+
+
+class RelevanceTrace(BaseModel):
+    goal: str
+    score: float
+    verdict: str
+    source_context: str
+    signals: list[RelevanceSignal] = Field(default_factory=list)
+    negatives: list[str] = Field(default_factory=list)
+
+
+class OfficialMetricRead(BaseModel):
+    country: str
+    confirmed_cases: int | None = None
+    deaths: int | None = None
+    probable_deaths: int | None = None
+    recoveries: int | None = None
+    admissions: int | None = None
+    imported_cases: int | None = None
+    local_cases: int | None = None
+    contacts_active: int | None = None
+    source_name: str
+    source_url: str
+    source_type: str
+    as_of: str | None = None
+    fetched_at: datetime | None = None
+    notes: str | None = None
+    status: str = "ok"
+
+
 class ArticleRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -46,6 +80,7 @@ class ArticleRead(BaseModel):
     source_tier: str = "aggregator"
     trust_score: float = 0.45
     source_name: str | None = None
+    relevance_trace: RelevanceTrace | None = None
 
 
 class SearchRequest(BaseModel):

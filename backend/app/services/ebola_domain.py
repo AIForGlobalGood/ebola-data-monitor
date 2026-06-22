@@ -168,33 +168,62 @@ def is_dedicated_evd_source(source_name: str, source_url: str = "") -> bool:
     return any(hint in blob for hint in DEDICATED_SOURCE_HINTS)
 
 
-def score_evd_relevance(title: str, summary: str | None) -> float:
-    text = f"{title} {summary or ''}"
-    if not EVD_CORE_PATTERN.search(text):
-        # Filovirus-adjacent only when outbreak language present
-        if not (EVD_OUTBREAK_PATTERN.search(text) and re.search(r"\b(marburg|vhf|hemorrhagic)\b", text, re.I)):
-            return 0.05
+def score_evd_relevance(
+    title: str,
+    summary: str | None,
+    *,
+    source_name: str = "",
+    source_url: str = "",
+    source_region: str | None = None,
+) -> float:
+    from app.services.relevance_trace import assess_relevance
 
-    score = 0.35
-    score += min(0.25, len(EVD_CORE_PATTERN.findall(text)) * 0.08)
-    score += min(0.15, len(EVD_STRAIN_PATTERN.findall(text)) * 0.08)
-    score += min(0.15, len(EVD_RESPONSE_PATTERN.findall(text)) * 0.05)
-    score += min(0.1, len(EVD_OUTBREAK_PATTERN.findall(text)) * 0.04)
-
-    locations = extract_locations(title, summary)
-    if locations:
-        score += 0.1
-        if any(LOCATION_CATALOG.get(loc, {}).get("zone") == "hotspot" for loc in locations):  # type: ignore[union-attr]
-            score += 0.1
-
-    return min(1.0, score)
+    return assess_relevance(
+        title,
+        summary,
+        source_name=source_name,
+        source_url=source_url,
+        source_region=source_region,
+    ).score
 
 
-def is_evd_relevant(title: str, summary: str | None, *, source_name: str = "", source_url: str = "") -> bool:
-    if is_dedicated_evd_source(source_name, source_url):
-        score = score_evd_relevance(title, summary)
-        return score >= 0.15 or EVD_CORE_PATTERN.search(f"{title} {summary or ''}") is not None
-    return score_evd_relevance(title, summary) >= MIN_EVD_RELEVANCE
+def assess_article_relevance(
+    title: str,
+    summary: str | None,
+    *,
+    source_name: str = "",
+    source_url: str = "",
+    source_region: str | None = None,
+):
+    from app.services.relevance_trace import RelevanceAssessment, assess_relevance
+
+    return assess_relevance(
+        title,
+        summary,
+        source_name=source_name,
+        source_url=source_url,
+        source_region=source_region,
+    )
+
+
+def is_evd_relevant(
+    title: str,
+    summary: str | None,
+    *,
+    source_name: str = "",
+    source_url: str = "",
+    source_region: str | None = None,
+) -> bool:
+    from app.services.relevance_trace import should_index
+
+    assessment = assess_article_relevance(
+        title,
+        summary,
+        source_name=source_name,
+        source_url=source_url,
+        source_region=source_region,
+    )
+    return should_index(assessment)
 
 
 def infer_evd_category(title: str, summary: str | None, default: str) -> str:

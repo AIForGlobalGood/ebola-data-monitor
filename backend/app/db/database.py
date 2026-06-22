@@ -43,6 +43,8 @@ def _migrate_schema(connection) -> None:
             connection.execute(sa.text("ALTER TABLE articles ADD COLUMN source_tier VARCHAR(20) DEFAULT 'aggregator'"))
         if "trust_score" not in article_cols:
             connection.execute(sa.text("ALTER TABLE articles ADD COLUMN trust_score FLOAT DEFAULT 0.45"))
+        if "relevance_trace" not in article_cols:
+            connection.execute(sa.text("ALTER TABLE articles ADD COLUMN relevance_trace TEXT"))
 
     if "briefings" in inspector.get_table_names():
         briefing_cols = {col["name"] for col in inspector.get_columns("briefings")}

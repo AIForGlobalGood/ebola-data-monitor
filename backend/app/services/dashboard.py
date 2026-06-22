@@ -6,11 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import Article, Briefing, Source
-from app.schemas import ArticleRead, BriefingRead, CitedFinding, DashboardStats, SourceRead
+from app.schemas import ArticleRead, BriefingRead, CitedFinding, DashboardStats, RelevanceTrace, SourceRead
 from app.services.entities import locations_from_json
+from app.services.relevance_trace import trace_from_json
 
 
 def article_to_read(article: Article) -> ArticleRead:
+    trace_raw = trace_from_json(getattr(article, "relevance_trace", None))
+    trace = RelevanceTrace(**trace_raw) if trace_raw else None
     return ArticleRead(
         id=article.id,
         source_id=article.source_id,
@@ -29,6 +32,7 @@ def article_to_read(article: Article) -> ArticleRead:
         source_tier=getattr(article, "source_tier", "aggregator") or "aggregator",
         trust_score=float(getattr(article, "trust_score", 0.45) or 0.45),
         source_name=article.source.name if article.source else None,
+        relevance_trace=trace,
     )
 
 

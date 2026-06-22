@@ -12,12 +12,12 @@ from app.config import get_settings
 from app.models import Article, Source
 from app.services.ebola_domain import (
     MIN_EVD_RELEVANCE,
+    assess_article_relevance,
     compute_severity,
     extract_locations,
     infer_evd_category,
     is_evd_relevant,
     locations_to_json,
-    score_evd_relevance,
 )
 from app.services.date_filters import apply_date_filters, parse_date_param
 from app.services.source_trust import infer_source_tier, trust_score_for_tier
@@ -74,6 +74,27 @@ DEFAULT_SOURCES = [
         "description": "EVD response operations — tracing, burial, IPC",
     },
     {
+        "name": "Google News — Ebola (broad)",
+        "url": "https://news.google.com/rss/search?q=ebola&hl=en-US&gl=US&ceid=US:en",
+        "category": "outbreak",
+        "region": "global",
+        "description": "Broad Ebola news net — relevance-filtered at ingest",
+    },
+    {
+        "name": "Google News — Ebola Africa",
+        "url": "https://news.google.com/rss/search?q=%22ebola%22+Africa+outbreak&hl=en-US&gl=US&ceid=US:en",
+        "category": "outbreak",
+        "region": "africa",
+        "description": "Ebola coverage across Africa beyond DRC/Uganda corridor",
+    },
+    {
+        "name": "Google News — Sudan ebolavirus",
+        "url": "https://news.google.com/rss/search?q=Sudan+ebolavirus+OR+SUDV+OR+%22Sudan+strain%22&hl=en-US&gl=US&ceid=US:en",
+        "category": "outbreak",
+        "region": "africa",
+        "description": "Sudan ebolavirus (SUDV) and strain-specific signals",
+    },
+    {
         "name": "CDC Health Alert Network",
         "url": "https://tools.cdc.gov/api/v2/resources/media/404372.rss",
         "category": "alert",
@@ -96,8 +117,15 @@ def _parse_date(value: str | None) -> datetime | None:
         return None
 
 
-def _score_relevance(title: str, summary: str | None) -> float:
-    return score_evd_relevance(title, summary)
+def _score_relevance(title: str, summary: str | None, source: Source) -> tuple[float, str]:
+    assessment = assess_article_relevance(
+        title,
+        summary,
+        source_name=source.name,
+        source_url=source.url,
+        source_region=source.region,
+    )
+    return assessment.score, assessment.to_json()
 
 
 def _infer_category(title: str, summary: str | None, default: str) -> str:
@@ -106,12 +134,13 @@ def _infer_category(title: str, summary: str | None, default: str) -> str:
 
 def _enrich_article_fields(title: str, summary: str | None, category: str, source: Source) -> dict:
     tier = infer_source_tier(source.url, source.name)
-    relevance = _score_relevance(title, summary)
+    relevance, trace_json = _score_relevance(title, summary, source)
     severity = compute_severity(title, summary, category, relevance, source_tier=tier)
     locations = extract_locations(title, summary)
     region = locations[0] if locations else source.region
     return {
         "relevance_score": relevance,
+        "relevance_trace": trace_json,
         "severity": severity,
         "locations": locations_to_json(locations),
         "region": region,
@@ -164,6 +193,7 @@ async def reprocess_articles(db: AsyncSession) -> int:
         article.summary = cleaned
         article.category = category
         article.relevance_score = enriched["relevance_score"]
+        article.relevance_trace = enriched["relevance_trace"]
         article.severity = enriched["severity"]
         article.locations = enriched["locations"]
         if enriched["region"]:
@@ -205,7 +235,13 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
         summary = clean_html(raw_summary)
         category = _infer_category(title, summary, source.category)
 
-        if not is_evd_relevant(title, summary, source_name=source.name, source_url=source.url):
+        if not is_evd_relevant(
+            title,
+            summary,
+            source_name=source.name,
+            source_url=source.url,
+            source_region=source.region,
+        ):
             continue
 
         enriched = _enrich_article_fields(title, summary, category, source)
@@ -220,6 +256,7 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
             region=enriched["region"],
             published_at=_parse_date(entry.get("published") or entry.get("updated")),
             relevance_score=enriched["relevance_score"],
+            relevance_trace=enriched["relevance_trace"],
             severity=enriched["severity"],
             locations=enriched["locations"],
             source_tier=enriched["source_tier"],

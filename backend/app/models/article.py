@@ -27,5 +27,6 @@ class Article(Base):
     locations: Mapped[str | None] = mapped_column(Text)
     source_tier: Mapped[str] = mapped_column(String(20), default="aggregator")
     trust_score: Mapped[float] = mapped_column(Float, default=0.45)
+    relevance_trace: Mapped[str | None] = mapped_column(Text)
 
     source = relationship("Source", back_populates="articles")
