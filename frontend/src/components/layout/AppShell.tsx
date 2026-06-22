@@ -2,6 +2,7 @@ import {
   Activity,
   AlertTriangle,
   Globe2,
+  Info,
   Loader2,
   Radio,
   RefreshCw,
@@ -15,13 +16,14 @@ import { DateFilterState } from "../../dateFilters";
 import { formatDate } from "../../utils";
 import { DateFilterBar } from "../DateFilterBar";
 
-export type Tab = "overview" | "feed" | "sources" | "briefings";
+export type Tab = "overview" | "feed" | "sources" | "briefings" | "about";
 
 const NAV: { id: Tab; label: string; icon: typeof Activity; desc: string }[] = [
   { id: "overview", label: "Control Tower", icon: ShieldAlert, desc: "Map & alerts" },
   { id: "feed", label: "Live Feed", icon: Radio, desc: "All signals" },
   { id: "sources", label: "Sources", icon: Globe2, desc: "RSS feeds" },
   { id: "briefings", label: "Briefings", icon: Sparkles, desc: "Synthesis" },
+  { id: "about", label: "About", icon: Info, desc: "Purpose & docs" },
 ];
 
 export function AppShell({

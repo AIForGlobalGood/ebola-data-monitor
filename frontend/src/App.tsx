@@ -10,6 +10,7 @@ import {
   Source,
 } from "./api";
 import { ArticleCard } from "./components/ArticleCard";
+import { AboutPage } from "./components/AboutPage";
 import { BriefingPanel } from "./components/BriefingPanel";
 import { ControlTowerView } from "./components/ControlTowerView";
 import { AppShell } from "./components/layout/AppShell";
@@ -328,6 +329,8 @@ export default function App() {
           </div>
         </ScrollSection>
       )}
+
+      {tab === "about" && <AboutPage />}
     </AppShell>
   );
 }
