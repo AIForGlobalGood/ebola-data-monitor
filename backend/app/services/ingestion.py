@@ -214,7 +214,7 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         response = await client.get(
             source.url,
-            headers={"User-Agent": "EbolaCrisisHub/1.0 (public-health monitoring)"},
+            headers={"User-Agent": "EbolaSituationView/1.0 (public-health monitoring)"},
         )
         response.raise_for_status()
         feed = feedparser.parse(response.text)

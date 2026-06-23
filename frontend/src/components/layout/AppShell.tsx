@@ -15,6 +15,7 @@ import { ControlTowerData } from "../../api";
 import { DateFilterState } from "../../dateFilters";
 import { formatDate } from "../../utils";
 import { DateFilterBar } from "../DateFilterBar";
+import { ThemeSwitcher } from "../ThemeSwitcher";
 
 export type Tab = "overview" | "feed" | "sources" | "briefings" | "about";
 
@@ -69,11 +70,11 @@ export function AppShell({
               <AlertTriangle className="h-4 w-4 text-hub-crisis" />
             </div>
             <div>
-              <p className="eyebrow text-hub-crisis/90">Emergency Ops</p>
-              <h1 className="font-display text-base font-bold tracking-tight">Crisis Hub</h1>
+              <p className="eyebrow text-hub-crisis/90">EVD situation</p>
+              <h1 className="font-display text-base font-bold tracking-tight">Ebola Situation View</h1>
             </div>
           </div>
-          <p className="text-xs leading-relaxed text-hub-subtle">Ebola (EVD) Control Tower · DRC/Uganda corridor · Public OSINT</p>
+          <p className="text-xs leading-relaxed text-hub-subtle">EVD outbreak · DRC/Uganda corridor · Public data</p>
         </div>
 
         <nav className="flex-1 space-y-1 p-3">
@@ -92,7 +93,11 @@ export function AppShell({
           ))}
         </nav>
 
-        <div className="border-t border-hub-border p-4">
+        <div className="border-t border-hub-border p-4 space-y-3">
+          <div>
+            <p className="mb-2 font-mono text-2xs uppercase tracking-wider text-hub-subtle">Appearance</p>
+            <ThemeSwitcher fullWidth />
+          </div>
           <div className="rounded-xl bg-hub-card p-3">
             <div className="mb-2 flex items-center gap-2">
               <span className="live-dot" />
@@ -111,8 +116,8 @@ export function AppShell({
         <header className="sticky top-0 z-20 border-b border-hub-border bg-hub-bg/80 backdrop-blur-xl">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-8">
             <div className="lg:hidden">
-              <p className="eyebrow text-hub-crisis/90">Emergency Ops</p>
-              <h1 className="font-display text-lg font-bold">Crisis Hub</h1>
+              <p className="eyebrow text-hub-crisis/90">EVD situation</p>
+              <h1 className="font-display text-lg font-bold">Ebola Situation View</h1>
             </div>
 
             <div className="hidden items-center gap-4 lg:flex">
@@ -132,6 +137,7 @@ export function AppShell({
             </div>
 
             <div className="flex flex-1 items-center justify-end gap-2">
+              <ThemeSwitcher className="lg:hidden" />
               <form onSubmit={onSearchSubmit} className="hidden max-w-xs flex-1 md:block lg:max-w-sm">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-hub-subtle" />
@@ -143,6 +149,7 @@ export function AppShell({
                   />
                 </div>
               </form>
+              <ThemeSwitcher className="hidden lg:inline-flex" />
               <button onClick={onRefresh} disabled={loading || !!busy} className="btn-ghost px-3">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 <span className="hidden sm:inline">Refresh</span>
@@ -185,7 +192,7 @@ export function AppShell({
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-hub-bg/60 backdrop-blur-sm">
               <div className="panel flex items-center gap-3 px-6 py-4">
                 <Loader2 className="h-5 w-5 animate-spin text-hub-info" />
-                <span className="text-sm text-hub-muted">Loading control tower…</span>
+                <span className="text-sm text-hub-muted">Loading situation view…</span>
               </div>
             </div>
           )}
@@ -194,7 +201,7 @@ export function AppShell({
 
         <footer className="border-t border-hub-border px-4 py-3 lg:px-8">
           <p className="font-mono text-2xs text-hub-subtle">
-            Ebola Crisis Hub · Automated OSINT · Not epidemiologically verified · {formatDate(new Date().toISOString())}
+            Ebola Situation View · Automated OSINT · Not epidemiologically verified · {formatDate(new Date().toISOString())}
           </p>
         </footer>
       </div>

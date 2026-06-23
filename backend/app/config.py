@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    app_name: str = "Ebola Crisis Hub"
+    app_name: str = "Ebola Situation ViewView"
     database_url: str | None = None
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 

@@ -206,7 +206,7 @@ async def fetch_official_situation() -> list[OfficialMetric]:
             try:
                 response = await client.get(
                     source.url,
-                    headers={"User-Agent": "EbolaCrisisHub/1.0 (official-statistics-monitoring)"},
+                    headers={"User-Agent": "EbolaSituationView/1.0 (official-statistics-monitoring)"},
                 )
                 response.raise_for_status()
                 return _parse_source(source, response.text)

@@ -1,21 +1,9 @@
-import { useEffect, useState } from "react";
+import { ColorScheme } from "../theme/theme";
+import { useTheme } from "../theme/ThemeProvider";
 
-export type ColorScheme = "light" | "dark";
+export type { ColorScheme };
 
-function getSystemScheme(): ColorScheme {
-  if (typeof window === "undefined") return "dark";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
+/** Resolved light/dark scheme (respects system/light/dark user preference). */
 export function usePrefersColorScheme(): ColorScheme {
-  const [scheme, setScheme] = useState<ColorScheme>(getSystemScheme);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const update = () => setScheme(mq.matches ? "dark" : "light");
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-
-  return scheme;
+  return useTheme().resolvedScheme;
 }

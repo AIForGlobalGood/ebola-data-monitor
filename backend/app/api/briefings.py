@@ -64,7 +64,7 @@ async def generate_briefing(payload: BriefingRequest, db: AsyncSession = Depends
     result = await synthesize_briefing(payload.query, payload.focus, articles)
 
     briefing = Briefing(
-        title=payload.title or f"Crisis Briefing — {payload.focus.title()}",
+        title=payload.title or f"Situation Briefing — {payload.focus.title()}",
         query=payload.query,
         summary=result.summary,
         key_findings="\n".join(f"• {item}" for item in result.key_findings),

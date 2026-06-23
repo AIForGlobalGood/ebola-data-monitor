@@ -1,8 +1,8 @@
-# Ebola Crisis Hub Architecture
+# Ebola Situation View Architecture
 
 > **Audience:** engineers, technical program staff, and maintainers who need to understand how the app collects, classifies, displays, and deploys Ebola virus disease (EVD) public-information data.
 
-Ebola Crisis Hub is a full-stack situational awareness application for monitoring public information related to Ebola virus disease, with emphasis on the DRC/Uganda outbreak corridor and related regional signals.
+Ebola Situation View is a full-stack situational awareness application for monitoring public information related to Ebola virus disease, with emphasis on the DRC/Uganda outbreak corridor and related regional signals.
 
 The central design choice is that the app keeps **official epidemiological counts** separate from **public news/RSS signals**:
 
@@ -723,7 +723,7 @@ Priority order for a more production-grade system:
 
 ## 17. Summary
 
-Ebola Crisis Hub is best understood as a **two-lane situational awareness system**:
+Ebola Situation View is best understood as a **two-lane situational awareness system**:
 
 1. A small official-statistics lane for selected case/death counters.
 2. A broader public-signal lane for news/RSS triage, relevance scoring, mapping, and briefing synthesis.

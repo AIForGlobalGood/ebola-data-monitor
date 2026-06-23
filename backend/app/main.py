@@ -53,8 +53,8 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         description=(
-            "Ebola Emergency Crisis Control Tower — monitor, retrieve, organize, "
-            "and synthesize public information for situational awareness."
+            "Ebola Situation View — official counts, public signals, map, and "
+            "briefings for EVD situational awareness."
         ),
         version="0.2.0",
         lifespan=lifespan,

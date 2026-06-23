@@ -295,7 +295,7 @@ export default function App() {
             <div className="space-y-4">
               <SectionHeader
                 eyebrow="Synthesis"
-                title="Crisis briefings"
+                title="Situation briefings"
                 description="Source-cited executive summaries — configure OpenAI or Anthropic for live LLM output"
                 className="mb-0"
               />

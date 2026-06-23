@@ -5,15 +5,15 @@ export function AboutPage() {
   return (
     <div className="space-y-8">
       <section className="panel p-6">
-        <p className="eyebrow mb-2 text-hub-crisis/90">About Ebola Crisis Hub</p>
+        <p className="eyebrow mb-2 text-hub-crisis/90">About Ebola Situation View</p>
         <h2 className="font-display text-2xl font-semibold tracking-tight text-hub-text">
           Situational awareness for Ebola virus disease public information
         </h2>
         <p className="mt-3 max-w-4xl text-sm leading-relaxed text-hub-muted">
-          Ebola Crisis Hub helps response and program teams monitor public information related to Ebola virus disease
+          Ebola Situation View helps response and program teams monitor public information related to Ebola virus disease
           outbreaks, with emphasis on the DRC/Uganda outbreak corridor and related regional signals. It brings together
           parsed official situation counts, public RSS/news signals, geographic tagging, source-tier labels, and optional
-          briefing synthesis in one control tower.
+          briefing synthesis in one view.
         </p>
       </section>
 

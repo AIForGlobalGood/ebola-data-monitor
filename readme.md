@@ -1,13 +1,13 @@
-# Ebola Crisis Hub
+# Ebola Situation View
 
-**Ebola virus disease (EVD) Control Tower** — monitors the DRC/Uganda outbreak corridor and related regional Ebola signals. It combines parsed official situation counts from selected public-health authority pages with relevance-filtered public RSS/news signals from WHO, ReliefWeb, CDC HAN, and Google News.
+**Ebola virus disease (EVD) situation view** — monitors the DRC/Uganda outbreak corridor and related regional Ebola signals. It combines parsed official situation counts from selected public-health authority pages with relevance-filtered public RSS/news signals from WHO, ReliefWeb, CDC HAN, and Google News.
 
 Built for foundation program teams who need EVD situational awareness — confirmed official counts, ring vaccination, contact tracing, health-zone geography, cross-border signals, source trust, and source-aware briefings — without treating every media headline as a confirmed case count.
 
 Live deployment: https://ebola-crisis.vercel.app
 
 > [!WARNING]
-> Ebola Crisis Hub is a public-information situational awareness tool, not an official epidemiological surveillance system. Media/RSS signals, automated severity labels, map points, and generated briefings should not be treated as confirmed case counts or official risk assessments. Always verify confirmed cases, deaths, and operational decisions against linked Ministry of Health, WHO, ECDC, or other official situation reports.
+> Ebola Situation View is a public-information situational awareness tool, not an official epidemiological surveillance system. Media/RSS signals, automated severity labels, map points, and generated briefings should not be treated as confirmed case counts or official risk assessments. Always verify confirmed cases, deaths, and operational decisions against linked Ministry of Health, WHO, ECDC, or other official situation reports.
 
 ## What This App Is / Is Not
 
