@@ -8,6 +8,26 @@ export function formatDate(value: string | null) {
   });
 }
 
+/** Format a YYYY-MM-DD bucket key as a calendar date (no UTC midnight shift). */
+export function formatBucketDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/** Local calendar day key (YYYY-MM-DD) for grouping timeline entries. */
+export function localDateKey(value: string) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function severityStyles(severity: string) {
   switch (severity) {
     case "critical":
