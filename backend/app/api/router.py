@@ -1,8 +1,9 @@
 from fastapi import APIRouter
 
-from app.api import briefings, cron, dashboard, feed, official, search, sources, tower
+from app.api import briefings, cron, dashboard, feed, health, official, search, sources, tower
 
 api_router = APIRouter(prefix="/api")
+api_router.include_router(health.router, tags=["health"])
 api_router.include_router(dashboard.router, tags=["dashboard"])
 api_router.include_router(tower.router, prefix="/tower", tags=["tower"])
 api_router.include_router(sources.router, prefix="/sources", tags=["sources"])

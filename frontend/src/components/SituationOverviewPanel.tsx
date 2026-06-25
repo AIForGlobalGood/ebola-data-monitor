@@ -49,6 +49,22 @@ function cumulativeMetrics(rows: OfficialMetric[]) {
   };
 }
 
+function officialMetricsByCountry(rows: OfficialMetric[]) {
+  const grouped = new Map<string, OfficialMetric[]>();
+  for (const metric of rows) {
+    const list = grouped.get(metric.country) ?? [];
+    list.push(metric);
+    grouped.set(metric.country, list);
+  }
+
+  return [...grouped.entries()]
+    .map(([country, metrics]) => {
+      const sorted = [...metrics].sort((a, b) => metricScore(b) - metricScore(a));
+      return { country, primary: sorted[0], alternates: sorted.slice(1) };
+    })
+    .sort((a, b) => a.country.localeCompare(b.country));
+}
+
 export function SituationOverviewPanel({
   metrics,
   countries,
@@ -68,6 +84,7 @@ export function SituationOverviewPanel({
   const officialRows = metrics.filter((metric) => metric.status === "ok");
   const officialErrors = metrics.filter((metric) => metric.status !== "ok");
   const official = useMemo(() => cumulativeMetrics(officialRows), [officialRows]);
+  const officialByCountry = useMemo(() => officialMetricsByCountry(officialRows), [officialRows]);
 
   const importTotals = useMemo(
     () => ({
@@ -158,10 +175,14 @@ export function SituationOverviewPanel({
 
       {expanded && tab === "official" && (
         <div className="grid gap-3 px-5 py-5 md:grid-cols-2 xl:grid-cols-3">
-          {officialRows.map((metric) => (
-            <OfficialCard key={`${metric.source_name}-${metric.country}`} metric={metric} />
+          {officialByCountry.map(({ country, primary, alternates }) => (
+            <OfficialCard
+              key={country}
+              metric={primary}
+              alternates={alternates}
+            />
           ))}
-          {officialRows.length === 0 && (
+          {officialByCountry.length === 0 && (
             <p className="text-sm text-hub-muted md:col-span-2 xl:col-span-3">
               No official counts parsed yet. Try refreshing once source pages are reachable.
             </p>
@@ -279,7 +300,13 @@ function StatPill({
   );
 }
 
-function OfficialCard({ metric }: { metric: OfficialMetric }) {
+function OfficialCard({
+  metric,
+  alternates = [],
+}: {
+  metric: OfficialMetric;
+  alternates?: OfficialMetric[];
+}) {
   return (
     <a
       href={metric.source_url}
@@ -315,6 +342,19 @@ function OfficialCard({ metric }: { metric: OfficialMetric }) {
         {metric.imported_cases != null && <span className="chip border border-hub-border">imported {metric.imported_cases}</span>}
         {metric.local_cases != null && <span className="chip border border-hub-border">local {metric.local_cases}</span>}
       </div>
+
+      {alternates.length > 0 && (
+        <div className="mt-3 border-t border-hub-border pt-3">
+          <p className="mb-1.5 font-mono text-2xs uppercase tracking-wider text-hub-subtle">Also reported by</p>
+          <div className="flex flex-wrap gap-1">
+            {alternates.map((alt) => (
+              <span key={alt.source_name} className="chip border border-hub-border text-hub-subtle">
+                {sourceLabel(alt)} ({numberOrDash(alt.confirmed_cases)})
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-3 flex items-center gap-1.5 text-2xs text-hub-verified">
         <ShieldCheck className="h-3.5 w-3.5" />

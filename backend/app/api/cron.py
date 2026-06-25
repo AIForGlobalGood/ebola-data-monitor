@@ -21,6 +21,12 @@ async def cron_ingest(
     """Vercel Cron entrypoint — refreshes RSS feeds on a schedule."""
     settings = get_settings()
     secret = settings.cron_secret or os.environ.get("CRON_SECRET")
+
+    if settings.is_vercel and not secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CRON_SECRET must be configured for scheduled ingest on Vercel",
+        )
     if secret and authorization != f"Bearer {secret}":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 

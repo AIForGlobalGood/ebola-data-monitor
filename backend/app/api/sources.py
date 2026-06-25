@@ -54,9 +54,9 @@ async def fetch_all(db: Session = Depends(get_db)) -> list[FetchResult]:
             new_articles=new_count,
             total_fetched=fetched,
             status="ok" if error is None else "error",
-            message=error,
+            message=error or info,
         )
-        for source, new_count, fetched, error in outcomes
+        for source, new_count, fetched, error, info in outcomes
     ]
 
 
@@ -66,15 +66,16 @@ async def fetch_one(source_id: int, db: Session = Depends(get_db)) -> FetchResul
     if not source:
         raise HTTPException(status_code=404, detail="Source not found")
     try:
-        new_count, fetched = await fetch_source(db, source)
+        new_count, fetched, info = await fetch_source(db, source)
         purged = purge_stale_articles(db)
+        parts = [part for part in (info, f"Purged {purged} stale articles" if purged else None) if part]
         return FetchResult(
             source_id=source.id,
             source_name=source.name,
             new_articles=new_count,
             total_fetched=fetched,
             status="ok",
-            message=f"Purged {purged} stale articles" if purged else None,
+            message=" · ".join(parts) if parts else None,
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=str(exc)) from exc

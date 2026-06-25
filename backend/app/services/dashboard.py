@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.models import Article, Briefing, Source
 from app.schemas import ArticleRead, BriefingRead, CitedFinding, DashboardStats, RelevanceTrace, SourceRead
 from app.services.entities import locations_from_json
+from app.services.ebola_domain import MIN_EVD_RELEVANCE
 from app.services.date_filters import retention_predicate
 from app.services.relevance_trace import trace_from_json
 
@@ -141,9 +142,10 @@ def get_dashboard_stats(db: Session) -> DashboardStats:
 
 def list_sources(db: Session) -> list[SourceRead]:
     retained = retention_predicate()
+    evd = Article.relevance_score >= MIN_EVD_RELEVANCE
     stmt = (
         select(Source, func.count(Article.id))
-        .outerjoin(Article, and_(Article.source_id == Source.id, retained))
+        .outerjoin(Article, and_(Article.source_id == Source.id, retained, evd))
         .group_by(Source.id)
         .order_by(Source.name)
     )

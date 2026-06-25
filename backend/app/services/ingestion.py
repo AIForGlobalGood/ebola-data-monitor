@@ -20,23 +20,31 @@ from app.services.ebola_domain import (
     locations_to_json,
 )
 from app.services.date_filters import apply_date_filters, article_meets_retention, parse_date_param, retention_predicate, stale_article_predicate
+from app.services.reliefweb import (
+    ReliefWebConfigError,
+    RELIEFWEB_SOURCE_MIGRATIONS,
+    fetch_reliefweb_entries,
+    is_legacy_reliefweb_rss,
+    is_reliefweb_api_url,
+    reliefweb_api_source_url,
+)
 from app.services.source_trust import infer_source_tier, trust_score_for_tier
 from app.services.text_utils import clean_html, normalize_title, normalize_url, title_fingerprint, titles_are_duplicate
 
 DEFAULT_SOURCES = [
     {
         "name": "ReliefWeb — DRC Updates",
-        "url": "https://reliefweb.int/updates/rss.xml?legacy-river=country/cod",
+        "url": reliefweb_api_source_url("ebola Democratic Republic of the Congo"),
         "category": "outbreak",
         "region": "drc",
-        "description": "DRC humanitarian updates including EVD situation reports",
+        "description": "DRC humanitarian updates via ReliefWeb API v2 (requires RELIEFWEB_APPNAME)",
     },
     {
         "name": "ReliefWeb — Ebola",
-        "url": "https://reliefweb.int/updates/rss.xml?search=Ebola",
+        "url": reliefweb_api_source_url("ebola"),
         "category": "outbreak",
         "region": "africa",
-        "description": "ReliefWeb Ebola outbreak and response updates",
+        "description": "ReliefWeb Ebola reports via API v2 (requires RELIEFWEB_APPNAME)",
     },
     {
         "name": "WHO News",
@@ -166,6 +174,23 @@ def _is_duplicate(db: Session, url: str, title: str) -> bool:
     return False
 
 
+def sync_reliefweb_source_urls(db: Session) -> int:
+    """Point legacy ReliefWeb RSS sources at API v2 URLs."""
+    updated = 0
+    for name, url in RELIEFWEB_SOURCE_MIGRATIONS.items():
+        source = db.scalar(select(Source).where(Source.name == name))
+        if not source or source.url == url:
+            continue
+        conflict = db.scalar(select(Source.id).where(Source.url == url, Source.id != source.id))
+        if conflict:
+            continue
+        source.url = url
+        updated += 1
+    if updated:
+        db.commit()
+    return updated
+
+
 def seed_default_sources(db: Session) -> int:
     created = 0
     for item in DEFAULT_SOURCES:
@@ -206,18 +231,46 @@ def reprocess_articles(db: Session) -> int:
     return updated
 
 
-async def fetch_source(db: Session, source: Source) -> tuple[int, int]:
+async def fetch_source(db: Session, source: Source) -> tuple[int, int, str | None]:
     settings = get_settings()
     new_count = 0
     fetched = 0
+    status_message: str | None = None
 
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-        response = await client.get(
-            source.url,
-            headers={"User-Agent": "EbolaSituationView/1.0 (public-health monitoring)"},
-        )
-        response.raise_for_status()
-        feed = feedparser.parse(response.text)
+        if is_legacy_reliefweb_rss(source.url):
+            response = await client.get(
+                source.url,
+                headers={"User-Agent": "EbolaSituationView/1.0 (public-health monitoring)"},
+            )
+            if response.status_code in {202, 204} or not response.text.strip():
+                return (
+                    0,
+                    0,
+                    f"ReliefWeb legacy RSS unavailable (HTTP {response.status_code}). "
+                    "Source URL migrated to API v2 — set RELIEFWEB_APPNAME and re-fetch.",
+                )
+            feed = feedparser.parse(response.text)
+        elif is_reliefweb_api_url(source.url):
+            try:
+                api_entries = await fetch_reliefweb_entries(
+                    client, source_url=source.url, limit=settings.max_articles_per_source
+                )
+            except ReliefWebConfigError as exc:
+                return 0, 0, str(exc)
+            except httpx.HTTPStatusError as exc:
+                raise ValueError(f"ReliefWeb API HTTP {exc.response.status_code}") from exc
+            feed = feedparser.parse("")
+            feed.entries = api_entries  # type: ignore[attr-defined]
+            if not api_entries:
+                status_message = "ReliefWeb API returned no reports for this query."
+        else:
+            response = await client.get(
+                source.url,
+                headers={"User-Agent": "EbolaSituationView/1.0 (public-health monitoring)"},
+            )
+            response.raise_for_status()
+            feed = feedparser.parse(response.text)
 
     for entry in feed.entries[: settings.max_articles_per_source]:
         fetched += 1
@@ -271,20 +324,25 @@ async def fetch_source(db: Session, source: Source) -> tuple[int, int]:
 
     source.last_fetched_at = datetime.now(UTC)
     db.commit()
-    return new_count, fetched
+    if fetched > 0 and new_count == 0 and not status_message:
+        status_message = (
+            f"Fetched {fetched} entries; none passed EVD relevance, retention, or dedup filters."
+        )
+    return new_count, fetched, status_message
 
 
-async def fetch_all_sources(db: Session) -> list[tuple[Source, int, int, str | None]]:
+async def fetch_all_sources(db: Session) -> list[tuple[Source, int, int, str | None, str | None]]:
+    sync_reliefweb_source_urls(db)
     result = db.scalars(select(Source).where(Source.is_active.is_(True)))
     sources = result.all()
-    outcomes: list[tuple[Source, int, int, str | None]] = []
+    outcomes: list[tuple[Source, int, int, str | None, str | None]] = []
 
     for source in sources:
         try:
-            new_count, fetched = await fetch_source(db, source)
-            outcomes.append((source, new_count, fetched, None))
+            new_count, fetched, info = await fetch_source(db, source)
+            outcomes.append((source, new_count, fetched, None, info))
         except Exception as exc:  # noqa: BLE001
-            outcomes.append((source, 0, 0, str(exc)))
+            outcomes.append((source, 0, 0, str(exc), None))
 
     purge_stale_articles(db)
     return outcomes

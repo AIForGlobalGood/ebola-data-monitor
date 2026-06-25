@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from app.config import get_settings
 from app.db.database import SessionLocal
 from app.models import Article
-from app.services.ingestion import fetch_all_sources, purge_stale_articles, reprocess_articles
+from app.services.ingestion import fetch_all_sources, purge_stale_articles, reprocess_articles, sync_reliefweb_source_urls
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,16 @@ async def background_fetch_loop(stop_event: asyncio.Event) -> None:
 async def startup_tasks() -> None:
     settings = get_settings()
     with SessionLocal() as db:
+        if settings.is_vercel and not settings.uses_turso:
+            logger.warning(
+                "Vercel deployment without Turso — article corpus is ephemeral (/tmp). "
+                "Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN."
+            )
+
+        migrated = sync_reliefweb_source_urls(db)
+        if migrated:
+            logger.info("Migrated %s ReliefWeb source URLs to API v2", migrated)
+
         purged = purge_stale_articles(db)
         if purged:
             logger.info("Purged %s articles older than retention cutoff", purged)

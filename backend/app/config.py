@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     max_articles_per_source: int = 50
     cron_secret: str | None = None
     min_published_date: str = "2026-01-01"
+    reliefweb_appname: str | None = None
 
     @property
     def uses_turso(self) -> bool:
