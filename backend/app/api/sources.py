@@ -5,7 +5,7 @@ from app.db.database import get_db
 from app.models import Source
 from app.schemas import FetchResult, SourceCreate, SourceRead
 from app.services.dashboard import get_source, list_sources
-from app.services.ingestion import fetch_all_sources, fetch_source, reprocess_articles, seed_default_sources
+from app.services.ingestion import fetch_all_sources, fetch_source, purge_stale_articles, reprocess_articles, seed_default_sources
 
 router = APIRouter()
 
@@ -35,7 +35,12 @@ async def seed_sources(db: Session = Depends(get_db)) -> dict:
 @router.post("/reprocess", response_model=dict)
 async def reprocess(db: Session = Depends(get_db)) -> dict:
     updated = reprocess_articles(db)
-    return {"updated": updated, "message": f"Reprocessed {updated} articles"}
+    purged = purge_stale_articles(db)
+    return {
+        "updated": updated,
+        "purged": purged,
+        "message": f"Reprocessed {updated} articles; removed {purged} older than retention cutoff",
+    }
 
 
 @router.post("/fetch-all", response_model=list[FetchResult])
@@ -62,12 +67,14 @@ async def fetch_one(source_id: int, db: Session = Depends(get_db)) -> FetchResul
         raise HTTPException(status_code=404, detail="Source not found")
     try:
         new_count, fetched = await fetch_source(db, source)
+        purged = purge_stale_articles(db)
         return FetchResult(
             source_id=source.id,
             source_name=source.name,
             new_articles=new_count,
             total_fetched=fetched,
             status="ok",
+            message=f"Purged {purged} stale articles" if purged else None,
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=str(exc)) from exc

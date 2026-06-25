@@ -19,7 +19,7 @@ from app.services.ebola_domain import (
     is_evd_relevant,
     locations_to_json,
 )
-from app.services.date_filters import apply_date_filters, parse_date_param
+from app.services.date_filters import apply_date_filters, article_meets_retention, parse_date_param, retention_predicate, stale_article_predicate
 from app.services.source_trust import infer_source_tier, trust_score_for_tier
 from app.services.text_utils import clean_html, normalize_title, normalize_url, title_fingerprint, titles_are_duplicate
 
@@ -244,6 +244,10 @@ async def fetch_source(db: Session, source: Source) -> tuple[int, int]:
         ):
             continue
 
+        published_at = _parse_date(entry.get("published") or entry.get("updated"))
+        if not article_meets_retention(published_at, datetime.now(UTC)):
+            continue
+
         enriched = _enrich_article_fields(title, summary, category, source)
 
         article = Article(
@@ -254,7 +258,7 @@ async def fetch_source(db: Session, source: Source) -> tuple[int, int]:
             author=entry.get("author"),
             category=category,
             region=enriched["region"],
-            published_at=_parse_date(entry.get("published") or entry.get("updated")),
+            published_at=published_at,
             relevance_score=enriched["relevance_score"],
             relevance_trace=enriched["relevance_trace"],
             severity=enriched["severity"],
@@ -282,7 +286,21 @@ async def fetch_all_sources(db: Session) -> list[tuple[Source, int, int, str | N
         except Exception as exc:  # noqa: BLE001
             outcomes.append((source, 0, 0, str(exc)))
 
+    purge_stale_articles(db)
     return outcomes
+
+
+def purge_stale_articles(db: Session) -> int:
+    """Remove indexed articles older than the configured retention cutoff."""
+    stale_ids = db.scalars(select(Article.id).where(stale_article_predicate())).all()
+    if not stale_ids:
+        return 0
+    for article_id in stale_ids:
+        article = db.get(Article, article_id)
+        if article:
+            db.delete(article)
+    db.commit()
+    return len(stale_ids)
 
 
 def search_articles(
@@ -379,7 +397,7 @@ def get_alerts(db: Session, limit: int = 20) -> list[Article]:
     stmt = (
         select(Article)
         .options(selectinload(Article.source))
-        .where(Article.severity.in_(["critical", "high"]))
+        .where(Article.severity.in_(["critical", "high"]), retention_predicate())
         .order_by(Article.published_at.desc().nullslast(), Article.relevance_score.desc())
         .limit(limit)
     )
@@ -401,4 +419,9 @@ def get_articles_by_ids(db: Session, article_ids: list[int]) -> list[Article]:
 
 
 def count_articles_since(db: Session, since: datetime) -> int:
-    return db.scalar(select(func.count()).select_from(Article).where(Article.fetched_at >= since)) or 0
+    return (
+        db.scalar(
+            select(func.count()).select_from(Article).where(retention_predicate(), Article.fetched_at >= since)
+        )
+        or 0
+    )

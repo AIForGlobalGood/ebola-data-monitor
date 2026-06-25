@@ -1,13 +1,14 @@
 import json
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 
 from app.models import Article, Briefing, Source
 from app.schemas import ArticleRead, BriefingRead, CitedFinding, DashboardStats, RelevanceTrace, SourceRead
 from app.services.entities import locations_from_json
+from app.services.date_filters import retention_predicate
 from app.services.relevance_trace import trace_from_json
 
 
@@ -62,22 +63,28 @@ def briefing_to_read(briefing: Briefing, articles: list[Article] | None = None) 
 
 
 def get_dashboard_stats(db: Session) -> DashboardStats:
+    retained = retention_predicate()
     total_sources = db.scalar(select(func.count()).select_from(Source)) or 0
     active_sources = db.scalar(select(func.count()).select_from(Source).where(Source.is_active.is_(True))) or 0
-    total_articles = db.scalar(select(func.count()).select_from(Article)) or 0
+    total_articles = db.scalar(select(func.count()).select_from(Article).where(retained)) or 0
     total_briefings = db.scalar(select(func.count()).select_from(Briefing)) or 0
 
     since = datetime.now(UTC) - timedelta(hours=24)
-    articles_24h = db.scalar(select(func.count()).select_from(Article).where(Article.fetched_at >= since)) or 0
+    articles_24h = (
+        db.scalar(select(func.count()).select_from(Article).where(retained, Article.fetched_at >= since)) or 0
+    )
 
     category_rows = db.execute(
-        select(Article.category, func.count()).group_by(Article.category).order_by(func.count().desc())
+        select(Article.category, func.count())
+        .where(retained)
+        .group_by(Article.category)
+        .order_by(func.count().desc())
     )
     categories = {row[0]: row[1] for row in category_rows.all()}
 
     region_rows = db.execute(
         select(Article.region, func.count())
-        .where(Article.region.is_not(None))
+        .where(retained, Article.region.is_not(None))
         .group_by(Article.region)
         .order_by(func.count().desc())
     )
@@ -85,23 +92,26 @@ def get_dashboard_stats(db: Session) -> DashboardStats:
 
     severity_rows = db.execute(
         select(Article.severity, func.count())
-        .where(Article.fetched_at >= since)
+        .where(retained, Article.fetched_at >= since)
         .group_by(Article.severity)
     )
     severity_24h = {row[0]: row[1] for row in severity_rows.all()}
 
     tier_rows = db.execute(
         select(Article.source_tier, func.count())
-        .where(Article.fetched_at >= since)
+        .where(retained, Article.fetched_at >= since)
         .group_by(Article.source_tier)
     )
     trust_by_tier = {row[0]: row[1] for row in tier_rows.all()}
 
-    primary_signals_24h = db.scalar(
-        select(func.count())
-        .select_from(Article)
-        .where(Article.fetched_at >= since, Article.source_tier == "primary")
-    ) or 0
+    primary_signals_24h = (
+        db.scalar(
+            select(func.count())
+            .select_from(Article)
+            .where(retained, Article.fetched_at >= since, Article.source_tier == "primary")
+        )
+        or 0
+    )
 
     latest = db.scalar(select(Briefing).order_by(Briefing.created_at.desc()).limit(1))
     latest_briefing = None
@@ -130,9 +140,10 @@ def get_dashboard_stats(db: Session) -> DashboardStats:
 
 
 def list_sources(db: Session) -> list[SourceRead]:
+    retained = retention_predicate()
     stmt = (
         select(Source, func.count(Article.id))
-        .outerjoin(Article, Article.source_id == Source.id)
+        .outerjoin(Article, and_(Article.source_id == Source.id, retained))
         .group_by(Source.id)
         .order_by(Source.name)
     )

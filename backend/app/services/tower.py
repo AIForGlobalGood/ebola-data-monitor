@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 DISCLAIMER = (
     "Ebola virus disease (EVD) situational awareness only — not epidemiological confirmation. "
+    "Indexed signals are limited to content published on or after January 2026 unless configured otherwise. "
     "Signals are machine-classified from public RSS feeds (WHO, ReliefWeb, CDC). "
     "Severity and geography tags are automated; confirmed case counts must come from official situation reports. "
     "Import-watch regions (EU, Americas, Asia-Pacific) reflect media mentions — not verified import confirmations. "

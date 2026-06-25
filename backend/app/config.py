@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     fetch_interval_minutes: int = 30
     max_articles_per_source: int = 50
     cron_secret: str | None = None
+    min_published_date: str = "2026-01-01"
 
     @property
     def uses_turso(self) -> bool:

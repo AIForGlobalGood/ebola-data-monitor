@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from app.config import get_settings
 from app.db.database import SessionLocal
 from app.models import Article
-from app.services.ingestion import fetch_all_sources, reprocess_articles
+from app.services.ingestion import fetch_all_sources, purge_stale_articles, reprocess_articles
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,10 @@ async def background_fetch_loop(stop_event: asyncio.Event) -> None:
 async def startup_tasks() -> None:
     settings = get_settings()
     with SessionLocal() as db:
+        purged = purge_stale_articles(db)
+        if purged:
+            logger.info("Purged %s articles older than retention cutoff", purged)
+
         reprocessed = reprocess_articles(db)
         logger.info("Startup reprocess complete: %s articles", reprocessed)
 
