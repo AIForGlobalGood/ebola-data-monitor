@@ -1,13 +1,15 @@
 import json
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, func, select
+from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 
 from app.models import Article, Briefing, Source
 from app.schemas import ArticleRead, BriefingRead, CitedFinding, DashboardStats, RelevanceTrace, SourceRead
 from app.services.entities import locations_from_json
+from app.services.ebola_domain import MIN_EVD_RELEVANCE
+from app.services.date_filters import retention_predicate
 from app.services.relevance_trace import trace_from_json
 
 
@@ -61,54 +63,63 @@ def briefing_to_read(briefing: Briefing, articles: list[Article] | None = None) 
     )
 
 
-async def get_dashboard_stats(db: AsyncSession) -> DashboardStats:
-    total_sources = await db.scalar(select(func.count()).select_from(Source)) or 0
-    active_sources = await db.scalar(select(func.count()).select_from(Source).where(Source.is_active.is_(True))) or 0
-    total_articles = await db.scalar(select(func.count()).select_from(Article)) or 0
-    total_briefings = await db.scalar(select(func.count()).select_from(Briefing)) or 0
+def get_dashboard_stats(db: Session) -> DashboardStats:
+    retained = retention_predicate()
+    total_sources = db.scalar(select(func.count()).select_from(Source)) or 0
+    active_sources = db.scalar(select(func.count()).select_from(Source).where(Source.is_active.is_(True))) or 0
+    total_articles = db.scalar(select(func.count()).select_from(Article).where(retained)) or 0
+    total_briefings = db.scalar(select(func.count()).select_from(Briefing)) or 0
 
     since = datetime.now(UTC) - timedelta(hours=24)
-    articles_24h = await db.scalar(select(func.count()).select_from(Article).where(Article.fetched_at >= since)) or 0
+    articles_24h = (
+        db.scalar(select(func.count()).select_from(Article).where(retained, Article.fetched_at >= since)) or 0
+    )
 
-    category_rows = await db.execute(
-        select(Article.category, func.count()).group_by(Article.category).order_by(func.count().desc())
+    category_rows = db.execute(
+        select(Article.category, func.count())
+        .where(retained)
+        .group_by(Article.category)
+        .order_by(func.count().desc())
     )
     categories = {row[0]: row[1] for row in category_rows.all()}
 
-    region_rows = await db.execute(
+    region_rows = db.execute(
         select(Article.region, func.count())
-        .where(Article.region.is_not(None))
+        .where(retained, Article.region.is_not(None))
         .group_by(Article.region)
         .order_by(func.count().desc())
     )
     regions = {row[0]: row[1] for row in region_rows.all() if row[0]}
 
-    severity_rows = await db.execute(
+    severity_rows = db.execute(
         select(Article.severity, func.count())
-        .where(Article.fetched_at >= since)
+        .where(retained, Article.fetched_at >= since)
         .group_by(Article.severity)
     )
     severity_24h = {row[0]: row[1] for row in severity_rows.all()}
 
-    tier_rows = await db.execute(
+    tier_rows = db.execute(
         select(Article.source_tier, func.count())
-        .where(Article.fetched_at >= since)
+        .where(retained, Article.fetched_at >= since)
         .group_by(Article.source_tier)
     )
     trust_by_tier = {row[0]: row[1] for row in tier_rows.all()}
 
-    primary_signals_24h = await db.scalar(
-        select(func.count())
-        .select_from(Article)
-        .where(Article.fetched_at >= since, Article.source_tier == "primary")
-    ) or 0
+    primary_signals_24h = (
+        db.scalar(
+            select(func.count())
+            .select_from(Article)
+            .where(retained, Article.fetched_at >= since, Article.source_tier == "primary")
+        )
+        or 0
+    )
 
-    latest = await db.scalar(select(Briefing).order_by(Briefing.created_at.desc()).limit(1))
+    latest = db.scalar(select(Briefing).order_by(Briefing.created_at.desc()).limit(1))
     latest_briefing = None
     if latest:
         article_ids = [int(x) for x in (latest.article_ids or "").split(",") if x.strip().isdigit()]
         articles = (
-            await db.scalars(
+            db.scalars(
                 select(Article).options(selectinload(Article.source)).where(Article.id.in_(article_ids))
             )
         ).all() if article_ids else []
@@ -129,14 +140,16 @@ async def get_dashboard_stats(db: AsyncSession) -> DashboardStats:
     )
 
 
-async def list_sources(db: AsyncSession) -> list[SourceRead]:
+def list_sources(db: Session) -> list[SourceRead]:
+    retained = retention_predicate()
+    evd = Article.relevance_score >= MIN_EVD_RELEVANCE
     stmt = (
         select(Source, func.count(Article.id))
-        .outerjoin(Article, Article.source_id == Source.id)
+        .outerjoin(Article, and_(Article.source_id == Source.id, retained, evd))
         .group_by(Source.id)
         .order_by(Source.name)
     )
-    rows = await db.execute(stmt)
+    rows = db.execute(stmt)
     items: list[SourceRead] = []
     for source, count in rows.all():
         data = SourceRead.model_validate(source)
@@ -145,5 +158,5 @@ async def list_sources(db: AsyncSession) -> list[SourceRead]:
     return items
 
 
-async def get_source(db: AsyncSession, source_id: int) -> Source | None:
-    return await db.get(Source, source_id)
+def get_source(db: Session, source_id: int) -> Source | None:
+    return db.get(Source, source_id)

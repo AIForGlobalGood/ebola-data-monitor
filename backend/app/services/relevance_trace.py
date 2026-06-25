@@ -17,9 +17,13 @@ from app.services.ebola_domain import (
     EVD_OUTBREAK_PATTERN,
     EVD_RESPONSE_PATTERN,
     EVD_STRAIN_PATTERN,
+    IMPORT_CASE_PATTERN,
     LOCATION_CATALOG,
     extract_locations,
+    is_corridor_location,
     is_dedicated_evd_source,
+    is_import_location,
+    location_zone,
 )
 
 GOAL_ID = "drc_uganda_evd_corridor"
@@ -114,6 +118,18 @@ def _corridor_locations(locations: list[str]) -> list[str]:
     return [loc for loc in locations if loc in CORRIDOR_LOCATIONS]
 
 
+def _import_locations(locations: list[str]) -> list[str]:
+    return [loc for loc in locations if is_import_location(loc)]
+
+
+def _regional_watch_locations(locations: list[str]) -> list[str]:
+    return [
+        loc
+        for loc in locations
+        if is_corridor_location(loc) and loc not in CORRIDOR_LOCATIONS and loc not in HOTSPOT_LOCATIONS
+    ]
+
+
 def assess_relevance(
     title: str,
     summary: str | None,
@@ -131,6 +147,8 @@ def assess_relevance(
     context = _source_context(source_name, source_url, source_region)
     locations = extract_locations(title, summary)
     corridor = _corridor_locations(locations)
+    import_locs = _import_locations(locations)
+    regional_watch = _regional_watch_locations(locations)
     hotspots = [loc for loc in locations if loc in HOTSPOT_LOCATIONS]
 
     has_evd = EVD_CORE_PATTERN.search(text) is not None
@@ -160,8 +178,9 @@ def assess_relevance(
         signals.append(TraceSignal("alert", "Alert / mortality / spread signal", 0.06))
         score += 0.06
 
-    if CROSS_BORDER_PATTERN.search(text):
-        signals.append(TraceSignal("cross_border", "Cross-border / screening / corridor signal", 0.1))
+    if CROSS_BORDER_PATTERN.search(text) or (import_locs and IMPORT_CASE_PATTERN.search(text)):
+        label = "Import / spillover case signal" if import_locs else "Cross-border / screening / corridor signal"
+        signals.append(TraceSignal("cross_border", label, 0.1))
         score += 0.1
 
     if hotspots:
@@ -174,14 +193,30 @@ def assess_relevance(
             TraceSignal("geography", f"DRC/Uganda corridor: {', '.join(corridor[:2])}", 0.1)
         )
         score += 0.1
-    elif locations:
+        if import_locs:
+            signals.append(
+                TraceSignal("geography", f"Import watch: {', '.join(import_locs[:2])}", 0.08)
+            )
+            score += 0.08
+    elif import_locs:
         signals.append(
-            TraceSignal("geography", f"Geography tagged: {', '.join(locations[:2])}", 0.04)
+            TraceSignal("geography", f"Import watch: {', '.join(import_locs[:2])}", 0.12)
+        )
+        score += 0.12
+    elif regional_watch:
+        signals.append(
+            TraceSignal("geography", f"Regional watch: {', '.join(regional_watch[:2])}", 0.06)
+        )
+        score += 0.06
+    elif locations:
+        zone = location_zone(locations[0])
+        signals.append(
+            TraceSignal("geography", f"Geography tagged ({zone}): {', '.join(locations[:2])}", 0.04)
         )
         score += 0.04
 
-    if context == "dedicated_feed" and not has_evd and (corridor or response_hits):
-        signals.append(TraceSignal("source", "Dedicated EVD/DRC feed with corridor context", 0.08))
+    if context == "dedicated_feed" and not has_evd and (corridor or import_locs or response_hits):
+        signals.append(TraceSignal("source", "Dedicated EVD/DRC feed with geographic context", 0.08))
         score += 0.08
     elif context == "agency_feed" and has_evd:
         signals.append(TraceSignal("source", "Agency source on EVD topic", 0.06))
@@ -192,17 +227,17 @@ def assess_relevance(
         negatives.append("Off-topic disease without EVD mention")
         score -= 0.22
 
-    if HISTORICAL_ONLY_PATTERN.search(text_lower) and not corridor and not hotspots:
+    if HISTORICAL_ONLY_PATTERN.search(text_lower) and not corridor and not hotspots and not import_locs:
         negatives.append("Historical outbreak reference without active corridor geography")
         score -= 0.12
 
-    if not has_evd and not corridor and not (outbreak_hits and response_hits):
+    if not has_evd and not corridor and not import_locs and not (outbreak_hits and response_hits):
         if not (context == "dedicated_feed" and source_region in {"drc", "uganda", "africa"}):
-            negatives.append("No EVD topic or corridor geography")
+            negatives.append("No EVD topic or monitored geography")
             score -= 0.08
 
     score = max(0.0, min(1.0, score))
-    verdict = _verdict(score, text, context, has_evd, corridor, outbreak_hits, response_hits)
+    verdict = _verdict(score, text, context, has_evd, corridor, import_locs, outbreak_hits, response_hits)
 
     return RelevanceAssessment(
         score=score,
@@ -219,12 +254,13 @@ def _verdict(
     context: str,
     has_evd: bool,
     corridor: list[str],
+    import_locs: list[str],
     outbreak_hits: int,
     response_hits: int,
 ) -> str:
     if context == "dedicated_feed":
         if score >= MIN_DEDICATED_SCORE and (
-            has_evd or corridor or outbreak_hits or response_hits
+            has_evd or corridor or import_locs or outbreak_hits or response_hits
         ):
             return "index"
         if has_evd or EVD_CORE_PATTERN.search(text):

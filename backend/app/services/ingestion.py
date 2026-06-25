@@ -5,7 +5,7 @@ import feedparser
 import httpx
 from dateutil import parser as date_parser
 from sqlalchemy import func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
@@ -19,24 +19,32 @@ from app.services.ebola_domain import (
     is_evd_relevant,
     locations_to_json,
 )
-from app.services.date_filters import apply_date_filters, parse_date_param
+from app.services.date_filters import apply_date_filters, article_meets_retention, parse_date_param, retention_predicate, stale_article_predicate
+from app.services.reliefweb import (
+    ReliefWebConfigError,
+    RELIEFWEB_SOURCE_MIGRATIONS,
+    fetch_reliefweb_entries,
+    is_legacy_reliefweb_rss,
+    is_reliefweb_api_url,
+    reliefweb_api_source_url,
+)
 from app.services.source_trust import infer_source_tier, trust_score_for_tier
 from app.services.text_utils import clean_html, normalize_title, normalize_url, title_fingerprint, titles_are_duplicate
 
 DEFAULT_SOURCES = [
     {
         "name": "ReliefWeb — DRC Updates",
-        "url": "https://reliefweb.int/updates/rss.xml?legacy-river=country/cod",
+        "url": reliefweb_api_source_url("ebola Democratic Republic of the Congo"),
         "category": "outbreak",
         "region": "drc",
-        "description": "DRC humanitarian updates including EVD situation reports",
+        "description": "DRC humanitarian updates via ReliefWeb API v2 (requires RELIEFWEB_APPNAME)",
     },
     {
         "name": "ReliefWeb — Ebola",
-        "url": "https://reliefweb.int/updates/rss.xml?search=Ebola",
+        "url": reliefweb_api_source_url("ebola"),
         "category": "outbreak",
         "region": "africa",
-        "description": "ReliefWeb Ebola outbreak and response updates",
+        "description": "ReliefWeb Ebola reports via API v2 (requires RELIEFWEB_APPNAME)",
     },
     {
         "name": "WHO News",
@@ -149,9 +157,9 @@ def _enrich_article_fields(title: str, summary: str | None, category: str, sourc
     }
 
 
-async def _is_duplicate(db: AsyncSession, url: str, title: str) -> bool:
+def _is_duplicate(db: Session, url: str, title: str) -> bool:
     normalized = normalize_url(url)
-    existing_url = await db.scalar(
+    existing_url = db.scalar(
         select(Article.id).where(or_(Article.url == url, Article.url == normalized))
     )
     if existing_url:
@@ -159,34 +167,51 @@ async def _is_duplicate(db: AsyncSession, url: str, title: str) -> bool:
 
     fp = title_fingerprint(title)
     if len(fp) >= 15:
-        recent = await db.scalars(select(Article.title).order_by(Article.fetched_at.desc()).limit(500))
+        recent = db.scalars(select(Article.title).order_by(Article.fetched_at.desc()).limit(500))
         for existing in recent.all():
             if title_fingerprint(existing) == fp or titles_are_duplicate(title, existing):
                 return True
     return False
 
 
-async def seed_default_sources(db: AsyncSession) -> int:
+def sync_reliefweb_source_urls(db: Session) -> int:
+    """Point legacy ReliefWeb RSS sources at API v2 URLs."""
+    updated = 0
+    for name, url in RELIEFWEB_SOURCE_MIGRATIONS.items():
+        source = db.scalar(select(Source).where(Source.name == name))
+        if not source or source.url == url:
+            continue
+        conflict = db.scalar(select(Source.id).where(Source.url == url, Source.id != source.id))
+        if conflict:
+            continue
+        source.url = url
+        updated += 1
+    if updated:
+        db.commit()
+    return updated
+
+
+def seed_default_sources(db: Session) -> int:
     created = 0
     for item in DEFAULT_SOURCES:
-        exists = await db.scalar(select(Source.id).where(Source.url == item["url"]))
+        exists = db.scalar(select(Source.id).where(Source.url == item["url"]))
         if exists:
             continue
         db.add(Source(**item))
         created += 1
     if created:
-        await db.commit()
+        db.commit()
     return created
 
 
-async def reprocess_articles(db: AsyncSession) -> int:
+def reprocess_articles(db: Session) -> int:
     """Re-clean HTML and recompute metadata for existing articles."""
-    articles = (await db.scalars(select(Article))).all()
+    articles = (db.scalars(select(Article))).all()
     updated = 0
     for article in articles:
         cleaned = clean_html(article.summary)
         category = _infer_category(article.title, cleaned, article.category)
-        source = await db.get(Source, article.source_id)
+        source = db.get(Source, article.source_id)
         if not source:
             continue
         enriched = _enrich_article_fields(article.title, cleaned, category, source)
@@ -202,22 +227,50 @@ async def reprocess_articles(db: AsyncSession) -> int:
         article.trust_score = enriched["trust_score"]
         updated += 1
     if updated:
-        await db.commit()
+        db.commit()
     return updated
 
 
-async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
+async def fetch_source(db: Session, source: Source) -> tuple[int, int, str | None]:
     settings = get_settings()
     new_count = 0
     fetched = 0
+    status_message: str | None = None
 
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-        response = await client.get(
-            source.url,
-            headers={"User-Agent": "EbolaSituationView/1.0 (public-health monitoring)"},
-        )
-        response.raise_for_status()
-        feed = feedparser.parse(response.text)
+        if is_legacy_reliefweb_rss(source.url):
+            response = await client.get(
+                source.url,
+                headers={"User-Agent": "EbolaSituationView/1.0 (public-health monitoring)"},
+            )
+            if response.status_code in {202, 204} or not response.text.strip():
+                return (
+                    0,
+                    0,
+                    f"ReliefWeb legacy RSS unavailable (HTTP {response.status_code}). "
+                    "Source URL migrated to API v2 — set RELIEFWEB_APPNAME and re-fetch.",
+                )
+            feed = feedparser.parse(response.text)
+        elif is_reliefweb_api_url(source.url):
+            try:
+                api_entries = await fetch_reliefweb_entries(
+                    client, source_url=source.url, limit=settings.max_articles_per_source
+                )
+            except ReliefWebConfigError as exc:
+                return 0, 0, str(exc)
+            except httpx.HTTPStatusError as exc:
+                raise ValueError(f"ReliefWeb API HTTP {exc.response.status_code}") from exc
+            feed = feedparser.parse("")
+            feed.entries = api_entries  # type: ignore[attr-defined]
+            if not api_entries:
+                status_message = "ReliefWeb API returned no reports for this query."
+        else:
+            response = await client.get(
+                source.url,
+                headers={"User-Agent": "EbolaSituationView/1.0 (public-health monitoring)"},
+            )
+            response.raise_for_status()
+            feed = feedparser.parse(response.text)
 
     for entry in feed.entries[: settings.max_articles_per_source]:
         fetched += 1
@@ -228,7 +281,7 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
         url = normalize_url(raw_url)
         title = clean_html(entry.get("title", "Untitled"), max_length=500) or "Untitled"
 
-        if await _is_duplicate(db, url, title):
+        if _is_duplicate(db, url, title):
             continue
 
         raw_summary = entry.get("summary") or entry.get("description")
@@ -244,6 +297,10 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
         ):
             continue
 
+        published_at = _parse_date(entry.get("published") or entry.get("updated"))
+        if not article_meets_retention(published_at, datetime.now(UTC)):
+            continue
+
         enriched = _enrich_article_fields(title, summary, category, source)
 
         article = Article(
@@ -254,7 +311,7 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
             author=entry.get("author"),
             category=category,
             region=enriched["region"],
-            published_at=_parse_date(entry.get("published") or entry.get("updated")),
+            published_at=published_at,
             relevance_score=enriched["relevance_score"],
             relevance_trace=enriched["relevance_trace"],
             severity=enriched["severity"],
@@ -266,27 +323,46 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
         new_count += 1
 
     source.last_fetched_at = datetime.now(UTC)
-    await db.commit()
-    return new_count, fetched
+    db.commit()
+    if fetched > 0 and new_count == 0 and not status_message:
+        status_message = (
+            f"Fetched {fetched} entries; none passed EVD relevance, retention, or dedup filters."
+        )
+    return new_count, fetched, status_message
 
 
-async def fetch_all_sources(db: AsyncSession) -> list[tuple[Source, int, int, str | None]]:
-    result = await db.scalars(select(Source).where(Source.is_active.is_(True)))
+async def fetch_all_sources(db: Session) -> list[tuple[Source, int, int, str | None, str | None]]:
+    sync_reliefweb_source_urls(db)
+    result = db.scalars(select(Source).where(Source.is_active.is_(True)))
     sources = result.all()
-    outcomes: list[tuple[Source, int, int, str | None]] = []
+    outcomes: list[tuple[Source, int, int, str | None, str | None]] = []
 
     for source in sources:
         try:
-            new_count, fetched = await fetch_source(db, source)
-            outcomes.append((source, new_count, fetched, None))
+            new_count, fetched, info = await fetch_source(db, source)
+            outcomes.append((source, new_count, fetched, None, info))
         except Exception as exc:  # noqa: BLE001
-            outcomes.append((source, 0, 0, str(exc)))
+            outcomes.append((source, 0, 0, str(exc), None))
 
+    purge_stale_articles(db)
     return outcomes
 
 
-async def search_articles(
-    db: AsyncSession,
+def purge_stale_articles(db: Session) -> int:
+    """Remove indexed articles older than the configured retention cutoff."""
+    stale_ids = db.scalars(select(Article.id).where(stale_article_predicate())).all()
+    if not stale_ids:
+        return 0
+    for article_id in stale_ids:
+        article = db.get(Article, article_id)
+        if article:
+            db.delete(article)
+    db.commit()
+    return len(stale_ids)
+
+
+def search_articles(
+    db: Session,
     query: str,
     *,
     category: str | None = None,
@@ -332,12 +408,12 @@ async def search_articles(
         stmt = stmt.where(*filters)
 
     stmt = stmt.limit(limit)
-    result = await db.scalars(stmt)
+    result = db.scalars(stmt)
     return list(result.all())
 
 
-async def get_recent_articles(
-    db: AsyncSession,
+def get_recent_articles(
+    db: Session,
     limit: int = 50,
     *,
     category: str | None = None,
@@ -360,7 +436,7 @@ async def get_recent_articles(
         stmt = stmt.where(Article.severity == severity)
     stmt = apply_date_filters(stmt, date_from=date_from, date_to=date_to, date_field=date_field)
     stmt = stmt.limit(limit)
-    result = await db.scalars(stmt)
+    result = db.scalars(stmt)
     return list(result.all())
 
 
@@ -375,19 +451,19 @@ def resolve_date_filters(
     return parsed_from, parsed_to, field
 
 
-async def get_alerts(db: AsyncSession, limit: int = 20) -> list[Article]:
+def get_alerts(db: Session, limit: int = 20) -> list[Article]:
     stmt = (
         select(Article)
         .options(selectinload(Article.source))
-        .where(Article.severity.in_(["critical", "high"]))
+        .where(Article.severity.in_(["critical", "high"]), retention_predicate())
         .order_by(Article.published_at.desc().nullslast(), Article.relevance_score.desc())
         .limit(limit)
     )
-    result = await db.scalars(stmt)
+    result = db.scalars(stmt)
     return list(result.all())
 
 
-async def get_articles_by_ids(db: AsyncSession, article_ids: list[int]) -> list[Article]:
+def get_articles_by_ids(db: Session, article_ids: list[int]) -> list[Article]:
     if not article_ids:
         return []
     stmt = (
@@ -396,9 +472,14 @@ async def get_articles_by_ids(db: AsyncSession, article_ids: list[int]) -> list[
         .where(Article.id.in_(article_ids))
         .order_by(Article.relevance_score.desc())
     )
-    result = await db.scalars(stmt)
+    result = db.scalars(stmt)
     return list(result.all())
 
 
-async def count_articles_since(db: AsyncSession, since: datetime) -> int:
-    return await db.scalar(select(func.count()).select_from(Article).where(Article.fetched_at >= since)) or 0
+def count_articles_since(db: Session, since: datetime) -> int:
+    return (
+        db.scalar(
+            select(func.count()).select_from(Article).where(retention_predicate(), Article.fetched_at >= since)
+        )
+        or 0
+    )

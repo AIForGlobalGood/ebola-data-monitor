@@ -9,9 +9,10 @@ import { ControlTowerData } from "../api";
 import type { OfficialMetric } from "../api";
 import type { DateFilterParams } from "../dateFilters";
 import { CATEGORIES, categoryLabel, severityStyles, tierStyles } from "../utils";
-import { AlertPanel } from "./BriefingPanel";
+import { SignalFeedsSection } from "./SignalFeedsSection";
 import { HeadlineStrip } from "./HeadlineStrip";
-import { OfficialSituationPanel } from "./OfficialSituationPanel";
+import { GeographyPanel } from "./GeographyPanel";
+import { SituationOverviewPanel } from "./SituationOverviewPanel";
 import { RegionDrilldown } from "./RegionDrilldown";
 import { RegionMap } from "./RegionMap";
 import { Timeline } from "./Timeline";
@@ -36,8 +37,11 @@ export function ControlTowerView({
   const {
     stats,
     headline,
+    geography,
     verified_alerts,
     media_signals,
+    import_signals,
+    import_watch_countries,
     timeline,
     map_points,
     disclaimer,
@@ -51,64 +55,72 @@ export function ControlTowerView({
 
   const filteredVerified = filterAlerts(verified_alerts);
   const filteredMedia = filterAlerts(media_signals);
+  const importLocationSet = new Set(Object.keys(geography.import_by_location));
 
-  const trustSeveritySidebar = (
-    <div className="flex flex-col justify-between gap-4" style={{ minHeight: SECTION_HEIGHT.sidebar }}>
-      <Panel noPadding>
-        <PanelHeader eyebrow="Trust layer" title="Source tiers · 24h" />
-        <div className="space-y-3 px-5 py-3">
-          {["primary", "official", "aggregator"].map((tier) => {
-            const style = tierStyles(tier);
-            const count = stats.trust_by_tier?.[tier] ?? 0;
-            const total = stats.articles_24h || 1;
-            const pct = Math.round((count / total) * 100);
-            return (
-              <div key={tier}>
-                <div className="mb-1.5 flex items-center justify-between text-sm">
-                  <span className={`chip border ${style.badge}`}>{style.label}</span>
-                  <span className="font-mono text-xs text-hub-muted">{count}</span>
+  const mapSidebar = (
+    <div className="flex flex-col gap-4" style={{ minHeight: SECTION_HEIGHT.sidebar }}>
+      <GeographyPanel geography={geography} onSelectLocation={setSelectedLocation} />
+      <Panel noPadding className="flex-1">
+        <PanelHeader eyebrow="24h intake" title="Source & severity" description="Automated tier and severity mix" />
+        <div className="grid gap-5 px-5 py-3 sm:grid-cols-2">
+          <div className="space-y-3">
+            <p className="font-mono text-2xs uppercase tracking-wider text-hub-subtle">Source tier</p>
+            {["primary", "official", "aggregator"].map((tier) => {
+              const style = tierStyles(tier);
+              const count = stats.trust_by_tier?.[tier] ?? 0;
+              const total = stats.articles_24h || 1;
+              const pct = Math.round((count / total) * 100);
+              return (
+                <div key={tier}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className={`chip border ${style.badge}`}>{style.label}</span>
+                    <span className="font-mono text-xs text-hub-muted">{count}</span>
+                  </div>
+                  <div className="h-1 overflow-hidden rounded-full bg-hub-surface">
+                    <div
+                      className={`h-full rounded-full ${
+                        tier === "primary" ? "bg-hub-verified" : tier === "official" ? "bg-hub-info" : "bg-hub-caution"
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-hub-surface">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      tier === "primary" ? "bg-hub-verified" : tier === "official" ? "bg-hub-info" : "bg-hub-caution"
-                    }`}
-                    style={{ width: `${pct}%` }}
-                  />
+              );
+            })}
+          </div>
+          <div className="space-y-2">
+            <p className="font-mono text-2xs uppercase tracking-wider text-hub-subtle">Severity</p>
+            {["critical", "high", "medium", "low"].map((level) => {
+              const sev = severityStyles(level);
+              return (
+                <div key={level} className="flex items-center justify-between">
+                  <span className={`chip border capitalize ${sev.badge}`}>
+                    <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${sev.dot}`} />
+                    {level}
+                  </span>
+                  <span className="font-mono text-sm text-hub-muted">{stats.severity_24h?.[level] ?? 0}</span>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      </Panel>
-
-      <Panel noPadding>
-        <PanelHeader eyebrow="Classification" title="Severity · 24h" description="Tier-adjusted automated scoring" />
-        <div className="space-y-3 px-5 py-3">
-          {["critical", "high", "medium", "low"].map((level) => {
-            const sev = severityStyles(level);
-            return (
-              <div key={level} className="flex items-center justify-between">
-                <span className={`chip border capitalize ${sev.badge}`}>
-                  <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${sev.dot}`} />
-                  {level}
-                </span>
-                <span className="font-mono text-sm text-hub-muted">{stats.severity_24h?.[level] ?? 0}</span>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </Panel>
     </div>
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <TrustDisclaimer text={disclaimer} />
 
       <HeadlineStrip headline={headline} dateFilterActive={date_filter?.active} />
 
-      <OfficialSituationPanel metrics={officialMetrics} />
+      <SituationOverviewPanel
+        metrics={officialMetrics}
+        countries={import_watch_countries}
+        totalSignals={headline.import_signals}
+        importAlerts={import_signals}
+        onSelectLocation={setSelectedLocation}
+      />
 
       <section className="grid gap-4 xl:grid-cols-5 xl:items-start">
         <div className="xl:col-span-3">
@@ -123,10 +135,11 @@ export function ControlTowerView({
             <RegionDrilldown
               location={selectedLocation}
               dateParams={dateParams}
+              importLocationSet={importLocationSet}
               onClose={() => setSelectedLocation(null)}
             />
           ) : (
-            trustSeveritySidebar
+            mapSidebar
           )}
         </div>
       </section>
@@ -190,42 +203,7 @@ export function ControlTowerView({
         <Timeline buckets={timeline} />
       </ScrollSection>
 
-      <section className="grid gap-6 lg:grid-cols-2 lg:items-start">
-        <ScrollSection
-          defaultHeight={SECTION_HEIGHT.alerts}
-          header={
-            <SectionHeader
-              eyebrow="Verified"
-              title="Primary source EVD signals"
-              description="WHO situation reports · ReliefWeb · CDC — highest trust tier"
-              className="mb-0"
-            />
-          }
-        >
-          <AlertPanel
-            alerts={filteredVerified}
-            emptyMessage="No primary-source alerts match this filter."
-            variant="verified"
-          />
-        </ScrollSection>
-        <ScrollSection
-          defaultHeight={SECTION_HEIGHT.alerts}
-          header={
-            <SectionHeader
-              eyebrow="Unverified"
-              title="Media mentions"
-              description="Headlines & aggregators — not confirmed case counts"
-              className="mb-0"
-            />
-          }
-        >
-          <AlertPanel
-            alerts={filteredMedia}
-            emptyMessage="No media signals match this filter."
-            variant="media"
-          />
-        </ScrollSection>
-      </section>
+      <SignalFeedsSection verified={filteredVerified} media={filteredMedia} />
 
       <ScrollSection
         defaultHeight={SECTION_HEIGHT.priority}
@@ -233,7 +211,7 @@ export function ControlTowerView({
       >
         <div className="grid gap-3 lg:grid-cols-2">
           {filteredVerified.slice(0, 8).map(({ article }) => (
-            <ArticleCard key={article.id} article={article} />
+            <ArticleCard key={article.id} article={article} importLocationSet={importLocationSet} />
           ))}
           {filteredVerified.length === 0 && (
             <Panel>

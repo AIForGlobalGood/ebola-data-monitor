@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api, RegionDetail } from "../api";
 import type { DateFilterParams } from "../dateFilters";
 import { SECTION_HEIGHT } from "./layout/constants";
-import { severityStyles, tierStyles } from "../utils";
+import { severityStyles, tierStyles, locationZoneLabel, locationZoneStyles } from "../utils";
 import { ArticleCard } from "./ArticleCard";
 import { Timeline } from "./Timeline";
 import { PanelHeader, ScrollPanel } from "./ui/Panel";
@@ -11,10 +11,12 @@ import { PanelHeader, ScrollPanel } from "./ui/Panel";
 export function RegionDrilldown({
   location,
   dateParams,
+  importLocationSet,
   onClose,
 }: {
   location: string;
   dateParams?: DateFilterParams;
+  importLocationSet?: Set<string>;
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<RegionDetail | null>(null);
@@ -80,6 +82,9 @@ export function RegionDrilldown({
             {point && sev && (
               <div className="flex flex-wrap gap-2">
                 <span className={`chip border capitalize ${sev.badge}`}>{point.severity} severity</span>
+                <span className={`chip border ${locationZoneStyles(point.zone).badge}`}>
+                  {locationZoneLabel(point.zone)}
+                </span>
                 {point.primary_count > 0 && (
                   <span className={`chip border ${tierStyles("primary").badge}`}>Has primary sources</span>
                 )}
@@ -100,7 +105,7 @@ export function RegionDrilldown({
               </h4>
               <div className="space-y-2">
                 {detail.articles.map((article) => (
-                  <ArticleCard key={article.id} article={article} compact />
+                  <ArticleCard key={article.id} article={article} compact importLocationSet={importLocationSet} />
                 ))}
                 {detail.articles.length === 0 && (
                   <p className="text-sm text-hub-muted">No articles geotagged to this region in the current filter.</p>

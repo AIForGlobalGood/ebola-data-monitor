@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
+from functools import lru_cache
 
 from dateutil import parser as date_parser
-from sqlalchemy import Select
+from sqlalchemy import Select, and_, or_
 
 from app.models import Article
 
@@ -25,6 +26,46 @@ def parse_date_param(value: str | None, *, end_of_day: bool = False) -> datetime
     return dt
 
 
+@lru_cache
+def get_min_data_date() -> datetime:
+    from app.config import get_settings
+
+    settings = get_settings()
+    parsed = parse_date_param(settings.min_published_date, end_of_day=False)
+    return parsed or datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def article_meets_retention(published_at: datetime | None, fetched_at: datetime | None) -> bool:
+    cutoff = get_min_data_date()
+    if published_at is not None:
+        return _as_utc(published_at) >= cutoff
+    if fetched_at is not None:
+        return _as_utc(fetched_at) >= cutoff
+    return False
+
+
+def retention_predicate():
+    cutoff = get_min_data_date()
+    return or_(
+        Article.published_at >= cutoff,
+        and_(Article.published_at.is_(None), Article.fetched_at >= cutoff),
+    )
+
+
+def stale_article_predicate():
+    cutoff = get_min_data_date()
+    return or_(
+        Article.published_at < cutoff,
+        and_(Article.published_at.is_(None), Article.fetched_at < cutoff),
+    )
+
+
 def apply_date_filters(
     stmt: Select,
     *,
@@ -32,14 +73,33 @@ def apply_date_filters(
     date_to: datetime | None = None,
     date_field: str = "published",
 ) -> Select:
-    col = Article.fetched_at if date_field == "fetched" else Article.published_at
+    cutoff = get_min_data_date()
+    if date_from is None or date_from < cutoff:
+        date_from = cutoff
 
-    if date_field == "published" and (date_from or date_to):
-        stmt = stmt.where(col.is_not(None))
+    stmt = stmt.where(retention_predicate())
+
+    if date_field == "fetched":
+        if date_from:
+            stmt = stmt.where(Article.fetched_at >= date_from)
+        if date_to:
+            stmt = stmt.where(Article.fetched_at <= date_to)
+        return stmt
+
     if date_from:
-        stmt = stmt.where(col >= date_from)
+        stmt = stmt.where(
+            or_(
+                Article.published_at >= date_from,
+                and_(Article.published_at.is_(None), Article.fetched_at >= date_from),
+            )
+        )
     if date_to:
-        stmt = stmt.where(col <= date_to)
+        stmt = stmt.where(
+            or_(
+                Article.published_at <= date_to,
+                and_(Article.published_at.is_(None), Article.fetched_at <= date_to),
+            )
+        )
     return stmt
 
 

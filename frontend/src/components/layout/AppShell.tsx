@@ -74,7 +74,7 @@ export function AppShell({
               <h1 className="font-display text-base font-bold tracking-tight">Ebola Situation View</h1>
             </div>
           </div>
-          <p className="text-xs leading-relaxed text-hub-subtle">EVD outbreak · DRC/Uganda corridor · Public data</p>
+          <p className="text-xs leading-relaxed text-hub-subtle">EVD outbreak · corridor + import watch · Public data</p>
         </div>
 
         <nav className="flex-1 space-y-1 p-3">

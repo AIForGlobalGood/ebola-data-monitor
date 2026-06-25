@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.schemas import ArticleRead, SearchRequest
@@ -10,11 +10,11 @@ router = APIRouter()
 
 
 @router.post("", response_model=list[ArticleRead])
-async def search(payload: SearchRequest, db: AsyncSession = Depends(get_db)) -> list[ArticleRead]:
+async def search(payload: SearchRequest, db: Session = Depends(get_db)) -> list[ArticleRead]:
     parsed_from, parsed_to, field = resolve_date_filters(
         payload.date_from, payload.date_to, payload.date_field
     )
-    articles = await search_articles(
+    articles = search_articles(
         db,
         payload.query,
         category=payload.category,

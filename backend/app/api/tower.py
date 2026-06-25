@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.schemas import ControlTowerData, RegionDetail
@@ -14,10 +14,10 @@ async def control_tower(
     date_from: str | None = None,
     date_to: str | None = None,
     date_field: str = Query(default="published", pattern="^(published|fetched)$"),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ) -> ControlTowerData:
     parsed_from, parsed_to, field = resolve_date_filters(date_from, date_to, date_field)
-    return await get_control_tower(
+    return get_control_tower(
         db,
         date_from=parsed_from,
         date_to=parsed_to,
@@ -31,10 +31,10 @@ async def region_detail(
     date_from: str | None = None,
     date_to: str | None = None,
     date_field: str = Query(default="published", pattern="^(published|fetched)$"),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ) -> RegionDetail:
     parsed_from, parsed_to, field = resolve_date_filters(date_from, date_to, date_field)
-    detail = await get_region_detail(
+    detail = get_region_detail(
         db,
         location,
         date_from=parsed_from,

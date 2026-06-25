@@ -131,11 +131,35 @@ export interface MapPoint {
   primary_count: number;
   media_count: number;
   severity: string;
+  zone: string;
+}
+
+export interface GeographyStats {
+  corridor_regions: number;
+  import_watch_regions: number;
+  import_signals: number;
+  by_location: Record<string, number>;
+  import_by_location: Record<string, number>;
+}
+
+export interface ImportWatchCountry {
+  location: string;
+  signal_count: number;
+  media_signals: number;
+  primary_signals: number;
+  top_headline: string | null;
+  top_url: string | null;
+  top_published_at: string | null;
+  top_source_name: string | null;
+  top_severity: string | null;
 }
 
 export interface TowerHeadline {
   verified_alerts: number;
   affected_regions: number;
+  corridor_regions: number;
+  import_watch_regions: number;
+  import_signals: number;
   critical_high: number;
   matched_signals: number;
   last_official_update: string | null;
@@ -162,8 +186,11 @@ export interface DateFilterMeta {
 export interface ControlTowerData {
   stats: DashboardStats;
   headline: TowerHeadline;
+  geography: GeographyStats;
+  import_watch_countries: ImportWatchCountry[];
   verified_alerts: TowerAlert[];
   media_signals: TowerAlert[];
+  import_signals: TowerAlert[];
   alerts: TowerAlert[];
   timeline: TimelineBucket[];
   map_points: MapPoint[];
