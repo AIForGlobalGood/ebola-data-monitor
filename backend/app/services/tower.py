@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 
 from app.models import Article, Briefing
@@ -11,6 +11,7 @@ from app.schemas import (
     ControlTowerData,
     DateFilterMeta,
     GeographyStats,
+    ImportWatchCountry,
     MapPoint,
     RegionDetail,
     TimelineBucket,
@@ -160,6 +161,35 @@ def _build_headline(
     )
 
 
+def _build_import_watch_countries(all_articles: list[Article], map_points: list[MapPoint]) -> list[ImportWatchCountry]:
+    import_points = [point for point in map_points if point.zone == "import"]
+    import_points.sort(key=lambda point: (point.count, point.media_count), reverse=True)
+
+    rows: list[ImportWatchCountry] = []
+    for point in import_points:
+        matching = [
+            article
+            for article in all_articles
+            if _location_matches(locations_from_json(article.locations), point.location)
+        ]
+        matching.sort(key=_alert_sort_key, reverse=True)
+        top = matching[0] if matching else None
+        rows.append(
+            ImportWatchCountry(
+                location=point.location,
+                signal_count=point.count,
+                media_signals=point.media_count,
+                primary_signals=point.primary_count,
+                top_headline=top.title if top else None,
+                top_url=top.url if top else None,
+                top_published_at=top.published_at if top else None,
+                top_source_name=top.source.name if top and top.source else None,
+                top_severity=top.severity if top else None,
+            )
+        )
+    return rows
+
+
 def _build_import_alerts(candidates: list[Article], *, limit: int = 12) -> list[TowerAlert]:
     import_candidates = [
         article
@@ -170,27 +200,27 @@ def _build_import_alerts(candidates: list[Article], *, limit: int = 12) -> list[
     return [TowerAlert(article=article_to_read(a), severity=a.severity) for a in import_candidates[:limit]]
 
 
-async def get_control_tower(
-    db: AsyncSession,
+def get_control_tower(
+    db: Session,
     *,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
     date_field: str = "published",
 ) -> ControlTowerData:
-    stats = await get_dashboard_stats(db)
+    stats = get_dashboard_stats(db)
 
     base = select(Article).options(selectinload(Article.source))
     base = base.where(Article.relevance_score >= MIN_EVD_RELEVANCE)
     base = apply_date_filters(base, date_from=date_from, date_to=date_to, date_field=date_field)
 
-    matched = await db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    matched = db.scalar(select(func.count()).select_from(base.subquery())) or 0
 
     candidates_stmt = (
         base.where(Article.severity.in_(["critical", "high", "medium"]))
         .order_by(Article.relevance_score.desc(), Article.published_at.desc().nullslast())
         .limit(60)
     )
-    candidates = (await db.scalars(candidates_stmt)).all()
+    candidates = (db.scalars(candidates_stmt)).all()
     candidates.sort(key=_alert_sort_key, reverse=True)
 
     verified_alerts = [
@@ -208,10 +238,10 @@ async def get_control_tower(
     import_alerts = _build_import_alerts(candidates)
 
     timeline_stmt = base.where(Article.published_at.is_not(None)).order_by(Article.published_at.desc()).limit(200)
-    timeline_articles = (await db.scalars(timeline_stmt)).all()
+    timeline_articles = (db.scalars(timeline_stmt)).all()
     timeline = _build_timeline(timeline_articles)
 
-    all_articles = (await db.scalars(base)).all()
+    all_articles = (db.scalars(base)).all()
     map_points = _build_map_points(all_articles)
     geography = _build_geography_stats(all_articles, map_points)
     headline = _build_headline(
@@ -221,11 +251,11 @@ async def get_control_tower(
         matched=matched,
     )
 
-    latest = await db.scalar(select(Briefing).order_by(Briefing.created_at.desc()).limit(1))
+    latest = db.scalar(select(Briefing).order_by(Briefing.created_at.desc()).limit(1))
     if latest:
         article_ids = [int(x) for x in (latest.article_ids or "").split(",") if x.strip().isdigit()]
         articles = (
-            await db.scalars(
+            db.scalars(
                 select(Article).options(selectinload(Article.source)).where(Article.id.in_(article_ids))
             )
         ).all() if article_ids else []
@@ -241,10 +271,13 @@ async def get_control_tower(
         active=date_filter_active(date_from, date_to),
     )
 
+    import_watch_countries = _build_import_watch_countries(all_articles, map_points)
+
     return ControlTowerData(
         stats=stats,
         headline=headline,
         geography=geography,
+        import_watch_countries=import_watch_countries,
         verified_alerts=verified_alerts,
         media_signals=media_signals,
         import_signals=import_alerts,
@@ -270,8 +303,8 @@ def _location_matches(article_locations: list[str], target: str) -> bool:
     return False
 
 
-async def get_region_detail(
-    db: AsyncSession,
+def get_region_detail(
+    db: Session,
     location: str,
     *,
     date_from: datetime | None = None,
@@ -284,7 +317,7 @@ async def get_region_detail(
     base = select(Article).options(selectinload(Article.source))
     base = base.where(Article.relevance_score >= MIN_EVD_RELEVANCE)
     base = apply_date_filters(base, date_from=date_from, date_to=date_to, date_field=date_field)
-    all_articles = (await db.scalars(base)).all()
+    all_articles = (db.scalars(base)).all()
 
     matching = [a for a in all_articles if _location_matches(locations_from_json(a.locations), location)]
     matching.sort(key=_alert_sort_key, reverse=True)

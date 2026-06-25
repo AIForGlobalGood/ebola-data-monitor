@@ -2,7 +2,7 @@ import json
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 
 from app.db.database import get_db
@@ -18,15 +18,15 @@ router = APIRouter()
 @router.get("", response_model=list[BriefingRead])
 async def list_briefings(
     limit: int = Query(default=20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ) -> list[BriefingRead]:
-    result = await db.scalars(select(Briefing).order_by(Briefing.created_at.desc()).limit(limit))
+    result = db.scalars(select(Briefing).order_by(Briefing.created_at.desc()).limit(limit))
     briefings = result.all()
     items: list[BriefingRead] = []
     for briefing in briefings:
         article_ids = [int(x) for x in (briefing.article_ids or "").split(",") if x.strip().isdigit()]
         articles = (
-            await db.scalars(
+            db.scalars(
                 select(Article).options(selectinload(Article.source)).where(Article.id.in_(article_ids))
             )
         ).all() if article_ids else []
@@ -35,15 +35,15 @@ async def list_briefings(
 
 
 @router.post("/generate", response_model=BriefingRead)
-async def generate_briefing(payload: BriefingRequest, db: AsyncSession = Depends(get_db)) -> BriefingRead:
+async def generate_briefing(payload: BriefingRequest, db: Session = Depends(get_db)) -> BriefingRead:
     parsed_from, parsed_to, field = resolve_date_filters(
         payload.date_from, payload.date_to, payload.date_field
     )
 
     if payload.article_ids:
-        articles = await get_articles_by_ids(db, payload.article_ids)
+        articles = get_articles_by_ids(db, payload.article_ids)
     elif payload.query:
-        articles = await search_articles(
+        articles = search_articles(
             db,
             payload.query,
             limit=20,
@@ -52,7 +52,7 @@ async def generate_briefing(payload: BriefingRequest, db: AsyncSession = Depends
             date_field=field,
         )
     else:
-        articles = await search_articles(
+        articles = search_articles(
             db,
             "ebola outbreak Ituri DRC Uganda Bundibugyo confirmed cases",
             limit=15,
@@ -74,6 +74,6 @@ async def generate_briefing(payload: BriefingRequest, db: AsyncSession = Depends
         provider=result.provider,
     )
     db.add(briefing)
-    await db.commit()
-    await db.refresh(briefing)
+    db.commit()
+    db.refresh(briefing)
     return briefing_to_read(briefing, articles)

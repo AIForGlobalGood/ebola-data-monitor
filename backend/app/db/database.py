@@ -1,7 +1,7 @@
-from collections.abc import AsyncGenerator
+from collections.abc import Generator
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
 
@@ -10,22 +10,45 @@ class Base(DeclarativeBase):
     pass
 
 
+def _build_engine():
+    settings = get_settings()
+    kwargs: dict = {"echo": False}
+    connect_args = settings.database_connect_args
+    if connect_args:
+        kwargs["connect_args"] = connect_args
+    if settings.uses_turso:
+        kwargs["pool_pre_ping"] = True
+    return create_engine(settings.resolved_database_url, **kwargs)
+
+
 settings = get_settings()
-engine = create_async_engine(settings.resolved_database_url, echo=False)
-SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+engine = _build_engine()
+SessionLocal = sessionmaker(bind=engine, class_=Session, expire_on_commit=False)
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    async with SessionLocal() as session:
-        yield session
+@event.listens_for(engine, "connect")
+def _sqlite_pragmas(dbapi_connection, _connection_record) -> None:
+    if settings.uses_turso:
+        return
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 
-async def init_db() -> None:
+def get_db() -> Generator[Session, None, None]:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def init_db() -> None:
     from app.models import article, briefing, source  # noqa: F401
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        await conn.run_sync(_migrate_schema)
+    with engine.begin() as conn:
+        Base.metadata.create_all(conn)
+        _migrate_schema(conn)
 
 
 def _migrate_schema(connection) -> None:

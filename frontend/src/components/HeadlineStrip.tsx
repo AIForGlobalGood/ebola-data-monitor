@@ -1,4 +1,4 @@
-import { Clock, Globe2, Plane, ShieldCheck, Zap } from "lucide-react";
+import { Clock, Globe2, ShieldCheck, Zap } from "lucide-react";
 import { TowerHeadline } from "../api";
 import { formatDate } from "../utils";
 
@@ -12,17 +12,10 @@ export function HeadlineStrip({ headline, dateFilterActive }: { headline: TowerH
       tone: "text-hub-verified",
     },
     {
-      label: "Corridor regions",
-      value: headline.corridor_regions,
-      sub: "DRC · Uganda · spillover watch zones",
+      label: "Geography",
+      value: headline.affected_regions,
+      sub: `${headline.corridor_regions} corridor · ${headline.import_watch_regions} import watch · ${headline.import_signals} media`,
       icon: Globe2,
-      tone: "text-hub-info",
-    },
-    {
-      label: "Import watch",
-      value: headline.import_watch_regions,
-      sub: `${headline.import_signals} signal${headline.import_signals === 1 ? "" : "s"} · EU · Americas · Asia`,
-      icon: Plane,
       tone: "text-hub-info",
     },
     {
@@ -63,7 +56,7 @@ export function HeadlineStrip({ headline, dateFilterActive }: { headline: TowerH
           </div>
         </div>
       </div>
-      <div className="grid divide-y divide-hub-border sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-3 xl:grid-cols-5 xl:divide-x">
+      <div className="grid divide-y divide-hub-border sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 xl:divide-x">
         {metrics.map(({ label, value, sub, icon: Icon, tone }) => (
           <div key={label} className="px-5 py-5">
             <div className="mb-3 flex items-center justify-between">

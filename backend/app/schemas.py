@@ -187,6 +187,20 @@ class GeographyStats(BaseModel):
     import_by_location: dict[str, int] = Field(default_factory=dict)
 
 
+class ImportWatchCountry(BaseModel):
+    """Per-country import-watch summary from indexed media — not official case counts."""
+
+    location: str
+    signal_count: int = 0
+    media_signals: int = 0
+    primary_signals: int = 0
+    top_headline: str | None = None
+    top_url: str | None = None
+    top_published_at: datetime | None = None
+    top_source_name: str | None = None
+    top_severity: str | None = None
+
+
 class TowerHeadline(BaseModel):
     verified_alerts: int = 0
     affected_regions: int = 0
@@ -212,6 +226,7 @@ class ControlTowerData(BaseModel):
     stats: DashboardStats
     headline: TowerHeadline
     geography: GeographyStats = Field(default_factory=GeographyStats)
+    import_watch_countries: list[ImportWatchCountry] = Field(default_factory=list)
     verified_alerts: list[TowerAlert]
     media_signals: list[TowerAlert]
     import_signals: list[TowerAlert] = Field(default_factory=list)

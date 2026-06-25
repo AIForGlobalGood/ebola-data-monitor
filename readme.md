@@ -176,10 +176,28 @@ Or push to `main` if Git integration is connected.
 
 ### Limitations on Vercel
 
-- **SQLite is ephemeral** — data lives in `/tmp` on serverless functions and can reset on cold starts. Fine for demos; for persistent production data use [Turso](https://turso.tech), Neon, or run the backend on Railway/Render with a volume.
-- **Background fetch** is replaced by Vercel Cron (`/api/cron/ingest` once daily at 12:00 UTC in `vercel.json`). Use **Ingest** in the UI for on-demand ingest.
-- **Official counts are fetched on demand** — the app does not currently persist official metric history.
-- **Cron jobs** require a Vercel [Pro plan](https://vercel.com/docs/cron-jobs) on some accounts; Hobby may have limits.
+- **Without Turso:** SQLite is ephemeral — data lives in `/tmp` and can reset on cold starts.
+- **With Turso (recommended):** Set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` on Vercel. The app uses an **embedded replica** that syncs to Turso cloud so the article corpus survives cold starts.
+- **Background fetch** is replaced by Vercel Cron (`/api/cron/ingest` once daily at 12:00 UTC on Hobby). Each run fetches RSS and reprocesses geography/tags. Use **Ingest** for immediate refresh.
+- **Official counts are fetched on demand** — the app does not persist official metric history.
+- **Cron jobs** require a Vercel [Pro plan](https://vercel.com/docs/cron-jobs) for schedules more frequent than daily.
+
+### Turso setup (persistent production DB)
+
+```bash
+./scripts/setup_turso.sh ebola-situation-view
+```
+
+Add the printed `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` to Vercel:
+
+```bash
+npx vercel env add TURSO_DATABASE_URL production
+npx vercel env add TURSO_AUTH_TOKEN production
+npx vercel --prod --yes
+curl -X POST https://ebola-crisis.vercel.app/api/sources/fetch-all
+```
+
+After the first ingest, production keeps the same corpus across deploys and cold starts (synced to Turso).
 
 ### Frontend-only on Vercel (backend elsewhere)
 
@@ -190,7 +208,7 @@ If the API runs on Railway, Render, Fly, etc.:
 
 ## Roadmap
 
-- [ ] Durable production database (Turso, Neon, Postgres, or volume-backed hosting)
+- [x] Durable production database via Turso embedded replica (optional `TURSO_*` env vars)
 - [ ] Persist official metric snapshots and parser status
 - [ ] Parser fixture tests for Uganda MoH, WHO DON, and ECDC pages
 - [ ] GDELT / NewsAPI connectors

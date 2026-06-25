@@ -27,9 +27,9 @@ async def lifespan(_: FastAPI):
     data_dir = Path("/tmp/data") if settings.is_vercel else Path("data")
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    await init_db()
-    async with SessionLocal() as db:
-        await seed_default_sources(db)
+    init_db()
+    with SessionLocal() as db:
+        seed_default_sources(db)
 
     if settings.is_vercel:
         logger.info("Vercel mode — running one-shot startup ingest (cron handles scheduled fetch)")

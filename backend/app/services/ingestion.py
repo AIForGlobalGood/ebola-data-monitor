@@ -5,7 +5,7 @@ import feedparser
 import httpx
 from dateutil import parser as date_parser
 from sqlalchemy import func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
@@ -149,9 +149,9 @@ def _enrich_article_fields(title: str, summary: str | None, category: str, sourc
     }
 
 
-async def _is_duplicate(db: AsyncSession, url: str, title: str) -> bool:
+def _is_duplicate(db: Session, url: str, title: str) -> bool:
     normalized = normalize_url(url)
-    existing_url = await db.scalar(
+    existing_url = db.scalar(
         select(Article.id).where(or_(Article.url == url, Article.url == normalized))
     )
     if existing_url:
@@ -159,34 +159,34 @@ async def _is_duplicate(db: AsyncSession, url: str, title: str) -> bool:
 
     fp = title_fingerprint(title)
     if len(fp) >= 15:
-        recent = await db.scalars(select(Article.title).order_by(Article.fetched_at.desc()).limit(500))
+        recent = db.scalars(select(Article.title).order_by(Article.fetched_at.desc()).limit(500))
         for existing in recent.all():
             if title_fingerprint(existing) == fp or titles_are_duplicate(title, existing):
                 return True
     return False
 
 
-async def seed_default_sources(db: AsyncSession) -> int:
+def seed_default_sources(db: Session) -> int:
     created = 0
     for item in DEFAULT_SOURCES:
-        exists = await db.scalar(select(Source.id).where(Source.url == item["url"]))
+        exists = db.scalar(select(Source.id).where(Source.url == item["url"]))
         if exists:
             continue
         db.add(Source(**item))
         created += 1
     if created:
-        await db.commit()
+        db.commit()
     return created
 
 
-async def reprocess_articles(db: AsyncSession) -> int:
+def reprocess_articles(db: Session) -> int:
     """Re-clean HTML and recompute metadata for existing articles."""
-    articles = (await db.scalars(select(Article))).all()
+    articles = (db.scalars(select(Article))).all()
     updated = 0
     for article in articles:
         cleaned = clean_html(article.summary)
         category = _infer_category(article.title, cleaned, article.category)
-        source = await db.get(Source, article.source_id)
+        source = db.get(Source, article.source_id)
         if not source:
             continue
         enriched = _enrich_article_fields(article.title, cleaned, category, source)
@@ -202,11 +202,11 @@ async def reprocess_articles(db: AsyncSession) -> int:
         article.trust_score = enriched["trust_score"]
         updated += 1
     if updated:
-        await db.commit()
+        db.commit()
     return updated
 
 
-async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
+async def fetch_source(db: Session, source: Source) -> tuple[int, int]:
     settings = get_settings()
     new_count = 0
     fetched = 0
@@ -228,7 +228,7 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
         url = normalize_url(raw_url)
         title = clean_html(entry.get("title", "Untitled"), max_length=500) or "Untitled"
 
-        if await _is_duplicate(db, url, title):
+        if _is_duplicate(db, url, title):
             continue
 
         raw_summary = entry.get("summary") or entry.get("description")
@@ -266,12 +266,12 @@ async def fetch_source(db: AsyncSession, source: Source) -> tuple[int, int]:
         new_count += 1
 
     source.last_fetched_at = datetime.now(UTC)
-    await db.commit()
+    db.commit()
     return new_count, fetched
 
 
-async def fetch_all_sources(db: AsyncSession) -> list[tuple[Source, int, int, str | None]]:
-    result = await db.scalars(select(Source).where(Source.is_active.is_(True)))
+async def fetch_all_sources(db: Session) -> list[tuple[Source, int, int, str | None]]:
+    result = db.scalars(select(Source).where(Source.is_active.is_(True)))
     sources = result.all()
     outcomes: list[tuple[Source, int, int, str | None]] = []
 
@@ -285,8 +285,8 @@ async def fetch_all_sources(db: AsyncSession) -> list[tuple[Source, int, int, st
     return outcomes
 
 
-async def search_articles(
-    db: AsyncSession,
+def search_articles(
+    db: Session,
     query: str,
     *,
     category: str | None = None,
@@ -332,12 +332,12 @@ async def search_articles(
         stmt = stmt.where(*filters)
 
     stmt = stmt.limit(limit)
-    result = await db.scalars(stmt)
+    result = db.scalars(stmt)
     return list(result.all())
 
 
-async def get_recent_articles(
-    db: AsyncSession,
+def get_recent_articles(
+    db: Session,
     limit: int = 50,
     *,
     category: str | None = None,
@@ -360,7 +360,7 @@ async def get_recent_articles(
         stmt = stmt.where(Article.severity == severity)
     stmt = apply_date_filters(stmt, date_from=date_from, date_to=date_to, date_field=date_field)
     stmt = stmt.limit(limit)
-    result = await db.scalars(stmt)
+    result = db.scalars(stmt)
     return list(result.all())
 
 
@@ -375,7 +375,7 @@ def resolve_date_filters(
     return parsed_from, parsed_to, field
 
 
-async def get_alerts(db: AsyncSession, limit: int = 20) -> list[Article]:
+def get_alerts(db: Session, limit: int = 20) -> list[Article]:
     stmt = (
         select(Article)
         .options(selectinload(Article.source))
@@ -383,11 +383,11 @@ async def get_alerts(db: AsyncSession, limit: int = 20) -> list[Article]:
         .order_by(Article.published_at.desc().nullslast(), Article.relevance_score.desc())
         .limit(limit)
     )
-    result = await db.scalars(stmt)
+    result = db.scalars(stmt)
     return list(result.all())
 
 
-async def get_articles_by_ids(db: AsyncSession, article_ids: list[int]) -> list[Article]:
+def get_articles_by_ids(db: Session, article_ids: list[int]) -> list[Article]:
     if not article_ids:
         return []
     stmt = (
@@ -396,9 +396,9 @@ async def get_articles_by_ids(db: AsyncSession, article_ids: list[int]) -> list[
         .where(Article.id.in_(article_ids))
         .order_by(Article.relevance_score.desc())
     )
-    result = await db.scalars(stmt)
+    result = db.scalars(stmt)
     return list(result.all())
 
 
-async def count_articles_since(db: AsyncSession, since: datetime) -> int:
-    return await db.scalar(select(func.count()).select_from(Article).where(Article.fetched_at >= since)) or 0
+def count_articles_since(db: Session, since: datetime) -> int:
+    return db.scalar(select(func.count()).select_from(Article).where(Article.fetched_at >= since)) or 0

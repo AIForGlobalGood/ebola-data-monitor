@@ -1,15 +1,18 @@
 import asyncio
 import logging
 
+from sqlalchemy import func, select
+
 from app.config import get_settings
 from app.db.database import SessionLocal
+from app.models import Article
 from app.services.ingestion import fetch_all_sources, reprocess_articles
 
 logger = logging.getLogger(__name__)
 
 
 async def run_scheduled_fetch() -> None:
-    async with SessionLocal() as db:
+    with SessionLocal() as db:
         outcomes = await fetch_all_sources(db)
         total_new = sum(item[1] for item in outcomes)
         logger.info("Scheduled fetch complete: %s new articles", total_new)
@@ -31,6 +34,18 @@ async def background_fetch_loop(stop_event: asyncio.Event) -> None:
 
 
 async def startup_tasks() -> None:
-    async with SessionLocal() as db:
-        await reprocess_articles(db)
+    settings = get_settings()
+    with SessionLocal() as db:
+        reprocessed = reprocess_articles(db)
+        logger.info("Startup reprocess complete: %s articles", reprocessed)
+
+        if settings.is_vercel:
+            article_count = db.scalar(select(func.count()).select_from(Article)) or 0
+            if article_count == 0:
+                logger.info("Vercel cold start with empty corpus — running initial ingest")
+                await fetch_all_sources(db)
+                reprocess_articles(db)
+            return
+
         await fetch_all_sources(db)
+        reprocess_articles(db)

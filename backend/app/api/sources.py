@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models import Source
@@ -11,36 +11,37 @@ router = APIRouter()
 
 
 @router.get("", response_model=list[SourceRead])
-async def get_sources(db: AsyncSession = Depends(get_db)) -> list[SourceRead]:
-    return await list_sources(db)
+def get_sources(db: Session = Depends(get_db)) -> list[SourceRead]:
+    return list_sources(db)
 
 
 @router.post("", response_model=SourceRead, status_code=status.HTTP_201_CREATED)
-async def create_source(payload: SourceCreate, db: AsyncSession = Depends(get_db)) -> SourceRead:
+async def create_source(payload: SourceCreate, db: Session = Depends(get_db)) -> SourceRead:
     source = Source(**payload.model_dump())
     db.add(source)
-    await db.commit()
-    await db.refresh(source)
+    db.commit()
+    db.refresh(source)
     item = SourceRead.model_validate(source)
     item.article_count = 0
     return item
 
 
 @router.post("/seed", response_model=dict)
-async def seed_sources(db: AsyncSession = Depends(get_db)) -> dict:
-    created = await seed_default_sources(db)
+async def seed_sources(db: Session = Depends(get_db)) -> dict:
+    created = seed_default_sources(db)
     return {"created": created, "message": f"Seeded {created} default public-health feeds"}
 
 
 @router.post("/reprocess", response_model=dict)
-async def reprocess(db: AsyncSession = Depends(get_db)) -> dict:
-    updated = await reprocess_articles(db)
+async def reprocess(db: Session = Depends(get_db)) -> dict:
+    updated = reprocess_articles(db)
     return {"updated": updated, "message": f"Reprocessed {updated} articles"}
 
 
 @router.post("/fetch-all", response_model=list[FetchResult])
-async def fetch_all(db: AsyncSession = Depends(get_db)) -> list[FetchResult]:
+async def fetch_all(db: Session = Depends(get_db)) -> list[FetchResult]:
     outcomes = await fetch_all_sources(db)
+    reprocess_articles(db)
     return [
         FetchResult(
             source_id=source.id,
@@ -55,8 +56,8 @@ async def fetch_all(db: AsyncSession = Depends(get_db)) -> list[FetchResult]:
 
 
 @router.post("/{source_id}/fetch", response_model=FetchResult)
-async def fetch_one(source_id: int, db: AsyncSession = Depends(get_db)) -> FetchResult:
-    source = await get_source(db, source_id)
+async def fetch_one(source_id: int, db: Session = Depends(get_db)) -> FetchResult:
+    source = get_source(db, source_id)
     if not source:
         raise HTTPException(status_code=404, detail="Source not found")
     try:

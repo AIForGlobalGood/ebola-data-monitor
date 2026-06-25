@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.schemas import DashboardStats
@@ -9,5 +9,5 @@ router = APIRouter()
 
 
 @router.get("/dashboard", response_model=DashboardStats)
-async def dashboard(db: AsyncSession = Depends(get_db)) -> DashboardStats:
-    return await get_dashboard_stats(db)
+async def dashboard(db: Session = Depends(get_db)) -> DashboardStats:
+    return get_dashboard_stats(db)

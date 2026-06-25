@@ -142,6 +142,18 @@ export interface GeographyStats {
   import_by_location: Record<string, number>;
 }
 
+export interface ImportWatchCountry {
+  location: string;
+  signal_count: number;
+  media_signals: number;
+  primary_signals: number;
+  top_headline: string | null;
+  top_url: string | null;
+  top_published_at: string | null;
+  top_source_name: string | null;
+  top_severity: string | null;
+}
+
 export interface TowerHeadline {
   verified_alerts: number;
   affected_regions: number;
@@ -175,6 +187,7 @@ export interface ControlTowerData {
   stats: DashboardStats;
   headline: TowerHeadline;
   geography: GeographyStats;
+  import_watch_countries: ImportWatchCountry[];
   verified_alerts: TowerAlert[];
   media_signals: TowerAlert[];
   import_signals: TowerAlert[];
