@@ -1,5 +1,5 @@
 import { Article } from "../api";
-import { formatDate, categoryLabel, severityStyles, tierStyles } from "../utils";
+import { formatDate, categoryLabel, severityStyles, tierStyles, locationZoneStyles } from "../utils";
 
 function traceChips(article: Article): string[] {
   const trace = article.relevance_trace;
@@ -10,7 +10,15 @@ function traceChips(article: Article): string[] {
     .map((s) => s.label);
 }
 
-export function ArticleCard({ article, compact = false }: { article: Article; compact?: boolean }) {
+export function ArticleCard({
+  article,
+  compact = false,
+  importLocationSet,
+}: {
+  article: Article;
+  compact?: boolean;
+  importLocationSet?: Set<string>;
+}) {
   const sev = severityStyles(article.severity);
   const tier = tierStyles(article.source_tier ?? "aggregator");
   const chips = traceChips(article);
@@ -50,11 +58,18 @@ export function ArticleCard({ article, compact = false }: { article: Article; co
       <div className="flex flex-wrap items-center gap-2 font-mono text-2xs text-hub-subtle">
         <span className="rounded-md bg-hub-surface px-2 py-1">{article.source_name ?? "Unknown"}</span>
         <span className="rounded-md bg-hub-surface px-2 py-1 capitalize">{categoryLabel(article.category)}</span>
-        {article.locations?.slice(0, 2).map((loc) => (
-          <span key={loc} className="rounded-md bg-hub-surface px-2 py-1">
-            {loc}
-          </span>
-        ))}
+        {article.locations?.slice(0, 3).map((loc) => {
+          const isImport = importLocationSet?.has(loc);
+          const zone = isImport ? locationZoneStyles("import") : null;
+          return (
+            <span
+              key={loc}
+              className={`rounded-md px-2 py-1 ${zone ? `border ${zone.badge}` : "bg-hub-surface"}`}
+            >
+              {loc}
+            </span>
+          );
+        })}
         <span className="ml-auto">{formatDate(article.published_at)}</span>
         <span className="text-hub-info">{(article.relevance_score * 100).toFixed(0)}%</span>
       </div>

@@ -41,6 +41,10 @@ export default function App() {
   const [dateFilter, setDateFilter] = useState<DateFilterState>(DEFAULT_DATE_FILTER);
 
   const dateParams = useMemo(() => buildDateFilterParams(dateFilter), [dateFilter]);
+  const importLocationSet = useMemo(
+    () => new Set(Object.keys(tower?.geography?.import_by_location ?? {})),
+    [tower?.geography?.import_by_location],
+  );
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -219,7 +223,7 @@ export default function App() {
           >
             <div className="grid gap-3">
               {articles.map((article) => (
-                <ArticleCard key={article.id} article={article} />
+                <ArticleCard key={article.id} article={article} importLocationSet={importLocationSet} />
               ))}
               {articles.length === 0 && !loading && (
                 <Panel><p className="text-sm text-hub-muted">No articles match. Run Ingest to fetch sources.</p></Panel>

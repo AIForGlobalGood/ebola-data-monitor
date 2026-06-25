@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from "react-leaflet";
 import { MapPoint } from "../api";
 import { usePrefersColorScheme } from "../hooks/usePrefersColorScheme";
-import { severityStyles } from "../utils";
+import { severityStyles, locationZoneStyles } from "../utils";
 import { PanelHeader } from "./ui/Panel";
 import "./map.css";
 
@@ -26,6 +26,20 @@ function severityColor(severity: string): string {
     default:
       return "#5c708a";
   }
+}
+
+function markerColor(point: MapPoint): string {
+  if (point.zone === "import") {
+    return point.primary_count > 0 ? severityColor(point.severity) : "#4db5ff";
+  }
+  return severityColor(point.severity);
+}
+
+function markerFillOpacity(point: MapPoint): number {
+  if (point.zone === "import") {
+    return point.primary_count > 0 ? 0.85 : 0.55;
+  }
+  return point.primary_count > 0 ? 0.8 : 0.35;
 }
 
 function markerRadius(point: MapPoint): number {
@@ -69,7 +83,7 @@ export function RegionMap({
       <PanelHeader
         eyebrow="EVD geospatial"
         title="Outbreak corridor map"
-        description="DRC · Uganda · Ituri health zones — click to drill down"
+        description="DRC · Uganda corridor · import watch (EU, Americas, Asia)"
       />
       <div className="crisis-map relative h-[480px] w-full">
         <MapContainer center={AFRICA_EVD_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom className="h-full w-full">
@@ -80,9 +94,10 @@ export function RegionMap({
           />
           <FitBounds points={sorted} />
           {sorted.map((point) => {
-            const color = severityColor(point.severity);
+            const color = markerColor(point);
             const radius = markerRadius(point);
             const sev = severityStyles(point.severity);
+            const zone = locationZoneStyles(point.zone);
             const isSelected = selectedLocation === point.location;
             return (
               <CircleMarker
@@ -95,14 +110,19 @@ export function RegionMap({
                 pathOptions={{
                   color: isSelected ? "#4db5ff" : color,
                   fillColor: color,
-                  fillOpacity: point.primary_count > 0 ? 0.8 : 0.35,
+                  fillOpacity: markerFillOpacity(point),
                   weight: isSelected ? 3 : point.primary_count > 0 ? 2 : 1,
                   opacity: 0.95,
                 }}
               >
                 <Popup className="crisis-popup">
                   <div className="min-w-[220px] space-y-2.5 p-1">
-                    <p className="font-display text-sm font-semibold text-slate-900">{point.location}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-display text-sm font-semibold text-slate-900">{point.location}</p>
+                      <span className={`rounded-full border px-2 py-0.5 text-2xs capitalize ${zone.badge}`}>
+                        {point.zone === "import" ? "Import watch" : point.zone}
+                      </span>
+                    </div>
                     <span className={`inline-block rounded-full border px-2 py-0.5 text-2xs capitalize ${sev.badge}`}>
                       {point.severity}
                     </span>
@@ -143,6 +163,10 @@ export function RegionMap({
       </div>
       <div className="flex flex-wrap items-center gap-4 border-t border-hub-border px-5 py-3 font-mono text-2xs text-hub-subtle">
         <span>Marker size ∝ volume</span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-hub-info" />
+          Import watch
+        </span>
         {["critical", "high", "medium", "low"].map((level) => {
           const sev = severityStyles(level);
           return (

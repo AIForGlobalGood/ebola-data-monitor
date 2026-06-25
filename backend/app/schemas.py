@@ -176,11 +176,23 @@ class MapPoint(BaseModel):
     primary_count: int = 0
     media_count: int = 0
     severity: str
+    zone: str = "watch"
+
+
+class GeographyStats(BaseModel):
+    corridor_regions: int = 0
+    import_watch_regions: int = 0
+    import_signals: int = 0
+    by_location: dict[str, int] = Field(default_factory=dict)
+    import_by_location: dict[str, int] = Field(default_factory=dict)
 
 
 class TowerHeadline(BaseModel):
     verified_alerts: int = 0
     affected_regions: int = 0
+    corridor_regions: int = 0
+    import_watch_regions: int = 0
+    import_signals: int = 0
     critical_high: int = 0
     matched_signals: int = 0
     last_official_update: datetime | None = None
@@ -199,8 +211,10 @@ class RegionDetail(BaseModel):
 class ControlTowerData(BaseModel):
     stats: DashboardStats
     headline: TowerHeadline
+    geography: GeographyStats = Field(default_factory=GeographyStats)
     verified_alerts: list[TowerAlert]
     media_signals: list[TowerAlert]
+    import_signals: list[TowerAlert] = Field(default_factory=list)
     alerts: list[TowerAlert]
     timeline: list[TimelineBucket]
     map_points: list[MapPoint]

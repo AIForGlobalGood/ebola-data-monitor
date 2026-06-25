@@ -28,6 +28,50 @@ export function localDateKey(value: string) {
   return `${year}-${month}-${day}`;
 }
 
+export function locationZoneLabel(zone: string): string {
+  switch (zone) {
+    case "import":
+      return "Import watch";
+    case "hotspot":
+      return "Hotspot";
+    case "endemic":
+      return "Endemic";
+    case "watch":
+      return "Regional watch";
+    default:
+      return zone;
+  }
+}
+
+export function locationZoneStyles(zone: string) {
+  switch (zone) {
+    case "import":
+      return {
+        badge: "text-hub-info bg-hub-info-soft border-hub-info/35",
+        dot: "bg-hub-info",
+      };
+    case "hotspot":
+      return {
+        badge: "text-hub-crisis bg-hub-crisis-soft border-hub-crisis/35",
+        dot: "bg-hub-crisis",
+      };
+    case "endemic":
+      return {
+        badge: "text-hub-verified bg-hub-verified-soft border-hub-verified/35",
+        dot: "bg-hub-verified",
+      };
+    default:
+      return {
+        badge: "text-hub-caution bg-hub-caution-soft border-hub-caution/35",
+        dot: "bg-hub-caution",
+      };
+  }
+}
+
+export function locationZoneForName(name: string, mapPoints: { location: string; zone?: string }[]): string {
+  return mapPoints.find((point) => point.location === name)?.zone ?? "watch";
+}
+
 export function severityStyles(severity: string) {
   switch (severity) {
     case "critical":

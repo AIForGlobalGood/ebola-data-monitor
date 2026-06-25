@@ -11,13 +11,14 @@ export function AboutPage() {
         </h2>
         <p className="mt-3 max-w-4xl text-sm leading-relaxed text-hub-muted">
           Ebola Situation View helps response and program teams monitor public information related to Ebola virus disease
-          outbreaks, with emphasis on the DRC/Uganda outbreak corridor and related regional signals. It brings together
+          outbreaks, with emphasis on the DRC/Uganda outbreak corridor, import-watch regions (EU, Americas, Asia-Pacific),
+          and related regional signals. It brings together
           parsed official situation counts, public RSS/news signals, geographic tagging, source-tier labels, and optional
           briefing synthesis in one view.
         </p>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Official counts"
           value="MoH · WHO · ECDC"
@@ -29,6 +30,13 @@ export function AboutPage() {
           label="Public signals"
           value="RSS · News"
           hint="Filtered for EVD relevance and geography"
+          icon={Signal}
+          tone="info"
+        />
+        <StatCard
+          label="Import watch"
+          value="EU · Americas · Asia"
+          hint="Geography-tagged spillover/import mentions in signals"
           icon={Signal}
           tone="info"
         />

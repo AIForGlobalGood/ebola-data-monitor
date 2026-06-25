@@ -1,5 +1,6 @@
 import {
   Globe2,
+  Plane,
   Radio,
   ShieldCheck,
   Sparkles,
@@ -11,6 +12,7 @@ import type { DateFilterParams } from "../dateFilters";
 import { CATEGORIES, categoryLabel, severityStyles, tierStyles } from "../utils";
 import { AlertPanel } from "./BriefingPanel";
 import { HeadlineStrip } from "./HeadlineStrip";
+import { GeographyPanel } from "./GeographyPanel";
 import { OfficialSituationPanel } from "./OfficialSituationPanel";
 import { RegionDrilldown } from "./RegionDrilldown";
 import { RegionMap } from "./RegionMap";
@@ -36,8 +38,10 @@ export function ControlTowerView({
   const {
     stats,
     headline,
+    geography,
     verified_alerts,
     media_signals,
+    import_signals,
     timeline,
     map_points,
     disclaimer,
@@ -51,9 +55,13 @@ export function ControlTowerView({
 
   const filteredVerified = filterAlerts(verified_alerts);
   const filteredMedia = filterAlerts(media_signals);
+  const filteredImport = filterAlerts(import_signals);
+  const importLocationSet = new Set(Object.keys(geography.import_by_location));
 
   const trustSeveritySidebar = (
-    <div className="flex flex-col justify-between gap-4" style={{ minHeight: SECTION_HEIGHT.sidebar }}>
+    <div className="flex flex-col gap-4" style={{ minHeight: SECTION_HEIGHT.sidebar }}>
+      <GeographyPanel geography={geography} onSelectLocation={setSelectedLocation} />
+      <div className="flex flex-col justify-between gap-4 flex-1">
       <Panel noPadding>
         <PanelHeader eyebrow="Trust layer" title="Source tiers · 24h" />
         <div className="space-y-3 px-5 py-3">
@@ -99,6 +107,7 @@ export function ControlTowerView({
           })}
         </div>
       </Panel>
+      </div>
     </div>
   );
 
@@ -123,6 +132,7 @@ export function ControlTowerView({
             <RegionDrilldown
               location={selectedLocation}
               dateParams={dateParams}
+              importLocationSet={importLocationSet}
               onClose={() => setSelectedLocation(null)}
             />
           ) : (
@@ -131,7 +141,7 @@ export function ControlTowerView({
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           label="Primary signals · 24h"
           value={stats.primary_signals_24h ?? 0}
@@ -156,6 +166,13 @@ export function ControlTowerView({
           hint="Confirm independently before action"
           icon={Globe2}
           tone="caution"
+        />
+        <StatCard
+          label="Import watch signals"
+          value={headline.import_signals}
+          hint={`${headline.import_watch_regions} countries tagged · media mentions only`}
+          icon={Plane}
+          tone="info"
         />
         <StatCard
           label="Briefings"
@@ -228,12 +245,30 @@ export function ControlTowerView({
       </section>
 
       <ScrollSection
+        defaultHeight={SECTION_HEIGHT.alerts}
+        header={
+          <SectionHeader
+            eyebrow="Import watch"
+            title="EU · Americas · Asia-Pacific signals"
+            description="Geography-tagged import/spillover mentions — verify against official sources"
+            className="mb-0"
+          />
+        }
+      >
+        <AlertPanel
+          alerts={filteredImport}
+          emptyMessage="No import-watch signals match this filter."
+          variant="media"
+        />
+      </ScrollSection>
+
+      <ScrollSection
         defaultHeight={SECTION_HEIGHT.priority}
         header={<SectionHeader eyebrow="Priority queue" title="Top verified signals" className="mb-0" />}
       >
         <div className="grid gap-3 lg:grid-cols-2">
           {filteredVerified.slice(0, 8).map(({ article }) => (
-            <ArticleCard key={article.id} article={article} />
+            <ArticleCard key={article.id} article={article} importLocationSet={importLocationSet} />
           ))}
           {filteredVerified.length === 0 && (
             <Panel>
